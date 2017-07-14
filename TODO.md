@@ -1,0 +1,3 @@
+- [ ] Run the software from the client side.
+- [ ] Add box for nodes.
+- [ ] Get node states.

@@ -1,0 +1,11 @@
+resolver: lts-8.22
+
+packages:
+- '.'
+- '../common'
+
+- location:
+    git: https://github.com/kaizhang/SciFlow.git
+    commit: 81e0649f83f56257654d0ddb2602837549b5fc89
+
+extra-deps: []

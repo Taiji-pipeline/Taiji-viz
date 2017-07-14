@@ -1,0 +1,27 @@
+name:                TaijiViz-common
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/githubuser/common#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Kai Zhang
+maintainer:          example@example.com
+copyright:           2017 Kai Zhang
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     TaijiViz.Common.Types
+  build-depends:       base >= 4.7 && < 5
+                     , cereal
+                     , cereal-text
+                     , text
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/common
