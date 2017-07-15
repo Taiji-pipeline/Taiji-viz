@@ -86,16 +86,21 @@ socketTester :: MonadWidget t m => m (MenuInput t)
 socketTester = do
     pb <- getPostBuild
     divClass "ui grid" $ do
-        evt <- divClass "twelve wide column" $ do
-            recv <- sendMsg $ fmap (const (Connect "")) pb
-            d <- holdDyn (Left "Loading") $ fmap decode recv
-            dyn (fmap displayWorkflow d)
+        (response, evt) <- divClass "twelve wide column" $ do
+            response <- sendMsg $ fmap (const (Connect "")) pb
+            evt <- holdDyn (return never)
+                (fmap displayWorkflow $ fmapMaybe getResult response) >>= dyn
+            return (response, evt)
         divClass "four wide column" $ do
             evt1 <- switchPromptly never evt
             nodeInfo =<< holdDyn Nothing (fmap Just evt1)
-        return $ fmap (const ()) evt
+        return response
   where
     url = "ws://yed.ucsd.edu:8787"
+    fromEither (Left err) = error err
+    fromEither (Right x) = x
+    getResult (Raw bs) = Just $ fromEither $ decode bs
+    getResult _ = Nothing
 
 main :: IO ()
 main = mainWidget $ do

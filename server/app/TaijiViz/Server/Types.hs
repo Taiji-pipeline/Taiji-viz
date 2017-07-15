@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Types where
+module TaijiViz.Server.Types where
 
 import           Data.Binary           (Binary (..))
 import qualified Data.ByteString.Char8 as B

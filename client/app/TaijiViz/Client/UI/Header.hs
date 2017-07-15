@@ -24,8 +24,8 @@ header content = do
   where
     pusher = do
         rec (evt, menuEvts) <- uiMenu menuInput
-            menuInput <- content
-        handleMenuEvent menuEvts
+            menuInput <- handleMenuEvent menuEvts
+            content
         return evt
     sidebarMenu = do
         linkClass "Home" "item"
@@ -44,15 +44,20 @@ uiMenu input = divClass "ui fixed tiny inverted menu" $ do
     link <- linkClass "Menu" "item"
 
     rec (e, _) <- elClass' "div" "item" $ divClass "ui button" $ do
-            let t0 = elClass "i" "play icon" (return ()) >> text "Run"
-                t = elClass "i" "pause icon" (return ()) >> text "Stop"
-            clk <- foldDyn (\_ x -> not x) True $ domEvent Click e
-            dyn $ (\x -> if x then t0 else t) <$> clk
+            let render Nothing = divClass "loader ui active small" (return ())
+                render (Just True) = elClass "i" "pause icon" (return ()) >> text "Stop"
+                render (Just False) = elClass "i" "play icon" (return ()) >> text "Run"
+
+            evts <- holdDyn (Just False) $ leftmost [const Nothing <$> domEvent Click e, isRunning]
+            dyn $ fmap render evts
 
     return (_link_clicked link, V.fromList [domEvent Click e])
+  where
+    isRunning = fmapMaybe fn input
+        where
+          fn (Status Running) = Just (Just True)
+          fn (Status _) = Just (Just False)
+          fn _ = Nothing
 
-
-handleMenuEvent :: MonadWidget t m => MenuEvent t -> m ()
-handleMenuEvent evts = do
-    sendMsg $ fmap (const (Run [])) $ evts V.! 0
-    return ()
+handleMenuEvent :: MonadWidget t m => MenuEvent t -> m (Event t Result)
+handleMenuEvent evts = sendMsg $ fmap (const (Run [])) $ evts V.! 0

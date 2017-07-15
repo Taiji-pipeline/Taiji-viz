@@ -11,7 +11,9 @@ import           Data.Vector           (Vector)
 import           GHC.Generics          (Generic)
 import           Reflex.Dom.Core       (Event)
 
-type MenuInput t = Event t ()
+import TaijiViz.Common.Types
+
+type MenuInput t = Event t Result
 
 type MenuEvent t = Vector (Event t ())
 

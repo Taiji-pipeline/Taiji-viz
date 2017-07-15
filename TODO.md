@@ -1,3 +1,3 @@
-- [ ] Run the software from the client side.
-- [ ] Add box for nodes.
-- [ ] Get node states.
+- [x] Execute remote commands from the client side.
+- [x] Add box for nodes.
+- [x] Get node states.

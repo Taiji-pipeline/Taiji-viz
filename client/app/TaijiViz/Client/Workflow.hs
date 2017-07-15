@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 module TaijiViz.Client.Workflow
     ( displayWorkflow
@@ -14,31 +15,48 @@ import           Reflex.Dom.Contrib.Widgets.Svg (svg, svgAttr, svgAttr')
 import           Reflex.Dom.Core
 import           Scientific.Workflow.Types      (Attribute (..), PID)
 
-type Point = (Float, Float)
+import           TaijiViz.Common.Types
 
 displayWorkflow :: MonadWidget t m
-                => Either String ( [(PID, (Attribute, Point))], [[[Point]]] )
+                => Graph
                 -> m (Event t (PID, Attribute))
-displayWorkflow (Left err) = do
-    el "div" $ text $ T.pack err
-    return never
-displayWorkflow (Right (nodes, edges)) = divClass "ui segment" $
-    svgAttr "svg" [ ("height", "2000px"), ("width", "1000px")] $ do
-        mkEdges edges
-        mkNodes nodes
+displayWorkflow Graph{..} = divClass "ui segment" $
+    svgAttr "svg"
+        [ ("height", T.pack $ show $ max node_h edge_h + 50)
+        , ("width", T.pack $ show $ max node_w edge_w + 50)
+        ] $ mkEdges edges >> mkNodes nodes
+  where
+    (node_w, node_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $
+        map nodeCoord nodes
+    (edge_w, edge_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $ concat $
+        concat edges
 
-mkNodes :: MonadWidget t m => [(PID, (Attribute, Point))] -> m (Event t (PID, Attribute))
+mkNodes :: MonadWidget t m => [Node] -> m (Event t (PID, Attribute))
 mkNodes ns = do
-    evts <- forM ns $ \(pid, (attr, (x, y))) -> do
-        (e, _) <- svgAttr' "text"
-            [ ("x", T.pack $ show x)
-            , ("y", T.pack $ show y)
-            , ("text-anchor", "middle") ] $ text pid
-        return $ fmap (const (pid,attr)) $ domEvent Mouseover e
+    evts <- forM ns $ \Node{..} -> do
+        (e, _) <- svgAttr' "rect"
+            [ ( "x", T.pack $ show $ fst nodeCoord - nodeWidth / 2)
+            , ( "y", T.pack $ show $ snd nodeCoord - 20)
+            , ("rx", "6")
+            , ("ry", "6")
+            , ("width", T.pack $ show nodeWidth)
+            , ("height", "30")
+            , ("class", getClass nodeState)
+            ] $ return ()
+        svgAttr "text"
+            [ ("x", T.pack $ show $ fst nodeCoord)
+            , ("y", T.pack $ show $ snd nodeCoord)
+            , ("text-anchor", "middle") ] $ text nodeId
+        return $ fmap (const (nodeId, nodeAttr)) $ domEvent Mouseover e
     return $ leftmost evts
+  where
+    getClass st = case st of
+        Finished -> "done"
+        Unknown -> "await"
+        _ -> "await"
 {-# INLINE mkNodes #-}
 
-mkEdges :: MonadWidget t m => [[[Point]]] -> m ()
+mkEdges :: MonadWidget t m => [Edge] -> m ()
 mkEdges es = forM_ (concat es) mkSpline
 {-# INLINE mkEdges #-}
 
