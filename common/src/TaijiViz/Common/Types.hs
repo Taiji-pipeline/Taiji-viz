@@ -17,7 +17,7 @@ instance Serialize Command
 
 data ProgramStatus = Running
                    | Stopped
-                   deriving (Generic)
+                   deriving (Generic, Show)
 
 instance Serialize ProgramStatus
 
@@ -25,14 +25,20 @@ data NodeState = Finished
                | Failed
                | InProgress
                | Unknown
-               deriving (Generic)
+               deriving (Generic, Show)
 
 instance Serialize NodeState
 
 -- | Results from running the commands, sent by the server to the client.
 data Result = Status ProgramStatus
             | Raw ByteString
+            | Notification PID NodeState
     deriving (Generic)
+
+instance Show Result where
+    show (Status x) = "Status: " ++ show x
+    show (Raw _) = "Raw"
+    show (Notification pid st) = "Notification: " ++ show pid ++ " " ++ show st
 
 instance Serialize Result
 

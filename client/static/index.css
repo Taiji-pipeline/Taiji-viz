@@ -12,3 +12,9 @@ rect.await {
 rect.done {
     fill: green;
 }
+rect.progress {
+    fill: yellow;
+}
+rect.fail {
+    fill: red;
+}

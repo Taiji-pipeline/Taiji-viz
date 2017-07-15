@@ -17,41 +17,54 @@ import           Scientific.Workflow.Types      (Attribute (..), PID)
 
 import           TaijiViz.Common.Types
 
+type NodeStateUpdate t = Event t Result
+
 displayWorkflow :: MonadWidget t m
-                => Graph
+                => NodeStateUpdate t
+                -> Graph
                 -> m (Event t (PID, Attribute))
-displayWorkflow Graph{..} = divClass "ui segment" $
+displayWorkflow update Graph{..} = divClass "ui segment" $
     svgAttr "svg"
         [ ("height", T.pack $ show $ max node_h edge_h + 50)
         , ("width", T.pack $ show $ max node_w edge_w + 50)
-        ] $ mkEdges edges >> mkNodes nodes
+        ] $ mkEdges edges >> mkNodes (fmapMaybe f update) nodes
   where
     (node_w, node_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $
         map nodeCoord nodes
     (edge_w, edge_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $ concat $
         concat edges
+    f (Notification pid st) = Just (pid, st)
+    f _ = Nothing
 
-mkNodes :: MonadWidget t m => [Node] -> m (Event t (PID, Attribute))
-mkNodes ns = do
+mkNodes :: MonadWidget t m
+        => Event t (PID, NodeState)
+        -> [Node]
+        -> m (Event t (PID, Attribute))
+mkNodes update ns = do
     evts <- forM ns $ \Node{..} -> do
-        (e, _) <- svgAttr' "rect"
-            [ ( "x", T.pack $ show $ fst nodeCoord - nodeWidth / 2)
-            , ( "y", T.pack $ show $ snd nodeCoord - 20)
-            , ("rx", "6")
-            , ("ry", "6")
-            , ("width", T.pack $ show nodeWidth)
-            , ("height", "30")
-            , ("class", getClass nodeState)
-            ] $ return ()
+        beh <- holdDyn nodeState $ fmap snd $ ffilter ((==nodeId) . fst) update
+        mouseEvt <- dyn $ flip fmap beh $ \st -> do
+            (e, _) <- svgAttr' "rect"
+                [ ( "x", T.pack $ show $ fst nodeCoord - nodeWidth / 2)
+                , ( "y", T.pack $ show $ snd nodeCoord - 20)
+                , ("rx", "6")
+                , ("ry", "6")
+                , ("width", T.pack $ show nodeWidth)
+                , ("height", "30")
+                , ("class", getClass st)
+                ] $ return ()
+            return $ fmap (const (nodeId, nodeAttr)) $ domEvent Mouseover e
         svgAttr "text"
             [ ("x", T.pack $ show $ fst nodeCoord)
             , ("y", T.pack $ show $ snd nodeCoord)
             , ("text-anchor", "middle") ] $ text nodeId
-        return $ fmap (const (nodeId, nodeAttr)) $ domEvent Mouseover e
+        switchPromptly never mouseEvt
     return $ leftmost evts
   where
     getClass st = case st of
         Finished -> "done"
+        InProgress -> "progress"
+        Failed -> "fail"
         Unknown -> "await"
         _ -> "await"
 {-# INLINE mkNodes #-}

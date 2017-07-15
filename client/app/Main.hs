@@ -82,14 +82,14 @@ dataViewer = do
     action ctx RankTable{..} = DOM.liftJSM $ do
         drawTable expressions ctx
 
-socketTester :: MonadWidget t m => m (MenuInput t)
-socketTester = do
+socketTester :: MonadWidget t m => (Event t Result) -> m (MenuInput t)
+socketTester input = do
     pb <- getPostBuild
     divClass "ui grid" $ do
         (response, evt) <- divClass "twelve wide column" $ do
             response <- sendMsg $ fmap (const (Connect "")) pb
             evt <- holdDyn (return never)
-                (fmap displayWorkflow $ fmapMaybe getResult response) >>= dyn
+                (fmap (displayWorkflow input) $ fmapMaybe getResult response ) >>= dyn
             return (response, evt)
         divClass "four wide column" $ do
             evt1 <- switchPromptly never evt

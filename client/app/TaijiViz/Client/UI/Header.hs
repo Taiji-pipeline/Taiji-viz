@@ -16,7 +16,7 @@ import           TaijiViz.Client.Types
 import           TaijiViz.Common.Types
 
 header :: MonadWidget t m
-       => m (MenuInput t)
+       => (Event t Result -> m (MenuInput t))
        -> m ()
 header content = do
     uiSidebar sidebarOptions sidebarMenu pusher (fmap (const ToggleSidebar))
@@ -25,7 +25,7 @@ header content = do
     pusher = do
         rec (evt, menuEvts) <- uiMenu menuInput
             menuInput <- handleMenuEvent menuEvts
-            content
+            content menuInput
         return evt
     sidebarMenu = do
         linkClass "Home" "item"
