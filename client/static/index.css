@@ -7,14 +7,27 @@
 }
 
 rect.await {
-    fill: grey;
+    fill: #767676;
 }
 rect.done {
-    fill: green;
+    fill: #21BA45;
 }
 rect.progress {
-    fill: yellow;
+    fill: #F2711C;
 }
 rect.fail {
-    fill: red;
+    fill: #DB2828;
+}
+rect.select {
+    stroke: #2185D0;
+    stroke-width: 5;
+}
+
+svg text {
+    pointer-events: none;
+    fill: white;
+}
+
+svg rect:hover {
+    cursor: pointer;
 }

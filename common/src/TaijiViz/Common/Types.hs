@@ -9,7 +9,7 @@ import           GHC.Generics              (Generic)
 import           Scientific.Workflow.Types (Attribute, PID)
 
 -- | Commands that send from client to server.
-data Command = Connect T.Text
+data Command = SetCWD T.Text
              | Run [T.Text]
              deriving (Generic)
 
@@ -33,6 +33,7 @@ instance Serialize NodeState
 data Result = Status ProgramStatus
             | Raw ByteString
             | Notification PID NodeState
+            | Exception T.Text
     deriving (Generic)
 
 instance Show Result where

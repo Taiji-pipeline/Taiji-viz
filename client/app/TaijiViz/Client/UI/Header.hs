@@ -1,12 +1,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecursiveDo           #-}
 
 module TaijiViz.Client.UI.Header
-    (header) where
+    ( MenuEvent(..)
+    , header
+    ) where
 
 import qualified Data.Vector                   as V
+import qualified Data.Text as T
 import           Reflex.Dom.Core
 import           Reflex.Dom.SemanticUI
 import           Reflex.Dom.SemanticUI.Sidebar
@@ -15,22 +19,28 @@ import           TaijiViz.Client.Message
 import           TaijiViz.Client.Types
 import           TaijiViz.Common.Types
 
+data MenuEvent t = MenuEvent
+    { _menu_toggle :: Event t ()
+    , _menu_run :: Event t ()
+    , _menu_cwd :: Dynamic t T.Text
+    , _menu_set_cwd :: Event t ()
+    }
+
 header :: MonadWidget t m
-       => (Event t Result -> m (MenuInput t))
+       => ((Event t Result, MenuEvent t) -> m (Event t Result))
        -> m ()
 header content = do
     uiSidebar sidebarOptions sidebarMenu pusher (fmap (const ToggleSidebar))
     return ()
   where
     pusher = do
-        rec (evt, menuEvts) <- uiMenu menuInput
-            menuInput <- handleMenuEvent menuEvts
-            content menuInput
-        return evt
+        rec menuEvts <- uiMenu menuInput
+            menuInput <- handleMenuRun menuEvts
+            content (menuInput, menuEvts)
+        return $ _menu_toggle menuEvts
     sidebarMenu = do
         linkClass "Home" "item"
         linkClass "Topics" "item"
-        linkClass "Friends" "item"
         linkClass "History" "item"
     sidebarOptions = def
         { _uiSidebar_closable = False
@@ -39,25 +49,46 @@ header content = do
         , _uiSidebar_className = ["menu", "vertical"]
         }
 
-uiMenu :: MonadWidget t m => MenuInput t -> m (Event t (), MenuEvent t)
-uiMenu input = divClass "ui fixed tiny inverted menu" $ do
+uiMenu :: MonadWidget t m => MenuInput t -> m (MenuEvent t)
+uiMenu clickRunResult = divClass "ui fixed inverted menu" $ do
     link <- linkClass "Menu" "item"
 
-    rec (e, _) <- elClass' "div" "item" $ divClass "ui button" $ do
-            let render Nothing = divClass "loader ui active small" (return ())
-                render (Just True) = elClass "i" "pause icon" (return ()) >> text "Stop"
-                render (Just False) = elClass "i" "play icon" (return ()) >> text "Run"
+    rec (e, _) <- elClass' "div" "item" $ do
+            evts <- holdDyn (Just False) $ mergeWith combine
+                [const Nothing <$> domEvent Click e, isRunning]
+            dyn $ flip fmap evts $ \x -> case x of
+                Nothing -> elClass "button" "ui loading button" $ text "Loading"
+                Just False -> elClass "button" "ui icon labeled button" $ do
+                    elClass "i" "play icon" $ return ()
+                    text "Run"
+                Just True -> elClass "button" "ui icon labeled button" $ do
+                    elClass "i" "pause icon" $ return ()
+                    text "Stop"
 
-            evts <- holdDyn (Just False) $ leftmost [const Nothing <$> domEvent Click e, isRunning]
-            dyn $ fmap render evts
+    (txt, c) <- divClass "item" $ divClass "ui action labeled input" $ do
+        divClass "ui label" $ text "working directory:"
+        txt <- textInput def
+        (e, _) <- elClass' "button" "ui compact button" $ text "Refresh"
+        return (_textInput_value txt, domEvent Click e)
 
-    return (_link_clicked link, V.fromList [domEvent Click e])
+    return $ MenuEvent (_link_clicked link) (domEvent Click e) txt c
   where
-    isRunning = fmapMaybe fn input
+    isRunning = fmapMaybe fn clickRunResult
         where
           fn (Status Running) = Just (Just True)
           fn (Status _) = Just (Just False)
+          fn (Exception _) = Just (Just False)
           fn _ = Nothing
+    combine Nothing x = x
+    combine x Nothing = x
+    combine x y = x
 
-handleMenuEvent :: MonadWidget t m => MenuEvent t -> m (Event t Result)
-handleMenuEvent evts = sendMsg $ fmap (const (Run [])) $ evts V.! 0
+handleMenuRun :: MonadWidget t m
+              => MenuEvent t
+              -> m (Event t Result)
+handleMenuRun MenuEvent{..} = do
+    let evt = tag (current _menu_cwd) _menu_run
+    result <- sendMsg $ const (Run []) <$> ffilter (not . T.null) evt
+    return $ leftmost [ result
+        , const (Exception "Please set working directory first") <$>
+        ffilter T.null evt ]

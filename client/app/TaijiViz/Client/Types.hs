@@ -15,8 +15,6 @@ import TaijiViz.Common.Types
 
 type MenuInput t = Event t Result
 
-type MenuEvent t = Vector (Event t ())
-
 instance FromJSON B.ByteString where
     parseJSON (String x) = return $ B.pack $ T.unpack x
     parseJSON _          = mzero

@@ -82,14 +82,16 @@ dataViewer = do
     action ctx RankTable{..} = DOM.liftJSM $ do
         drawTable expressions ctx
 
-socketTester :: MonadWidget t m => (Event t Result) -> m (MenuInput t)
-socketTester input = do
-    pb <- getPostBuild
+socketTester :: MonadWidget t m
+             => (Event t Result, MenuEvent t)   -- ^ Use _menu_set_cwd event to update workflow
+                              -- ^ use _menu_run event to update node status
+             -> m (Event t Result)
+socketTester (input, MenuEvent{..}) = do
     divClass "ui grid" $ do
         (response, evt) <- divClass "twelve wide column" $ do
-            response <- sendMsg $ fmap (const (Connect "")) pb
+            response <- sendMsg $ SetCWD <$> tag (current _menu_cwd) _menu_set_cwd
             evt <- holdDyn (return never)
-                (fmap (displayWorkflow input) $ fmapMaybe getResult response ) >>= dyn
+                (fmap nodeHover . displayWorkflow input <$> fmapMaybe getResult response ) >>= dyn
             return (response, evt)
         divClass "four wide column" $ do
             evt1 <- switchPromptly never evt

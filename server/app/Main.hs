@@ -21,7 +21,11 @@ import           TaijiViz.Server.Workflow
 import           Control.Concurrent         (threadDelay)
 import           Debug.Trace
 
-type ServerState = Maybe ProcessHandle
+data ServerState = ServerState
+    { _current_process :: Maybe ProcessHandle
+    , _current_wd :: T.Text
+    }
+
 
 sendResult :: WS.Connection -> Result -> IO ()
 sendResult conn r = do
@@ -47,26 +51,30 @@ application state pending = do
 
 handleMsg :: MVar ServerState -> WS.Connection -> Command -> IO ()
 handleMsg state conn msg = case msg of
-    Connect _ -> sendGraph conn "sciflow.db"
+    SetCWD cwd -> do
+        st <- takeMVar state
+        sendGraph conn $ T.unpack cwd ++ "/sciflow.db"
+        putMVar state st{_current_wd = cwd}
     Run _     -> do
-        process <- takeMVar state
-        case process of
-            Nothing -> startProgram
+        st <- takeMVar state
+        case _current_process st of
+            Nothing -> startProgram st
             Just h -> do
                 exitCode <- getProcessExitCode h
                 case exitCode of
                     Nothing -> do
                         terminateProcess h
                         traceM "process stopped"
-                        putMVar state Nothing
-                    Just _ -> startProgram
+                        putMVar state st{_current_process=Nothing}
+                    Just _ -> startProgram st
   where
-    startProgram = do
+    startProgram st = do
         threadDelay 2000000
         sendResult conn $ Status Running
-        (_,_,e,p) <- runInteractiveProcess "taiji" ["run", "--config", "config.yml"] Nothing Nothing
+        (_,_,e,p) <- runInteractiveProcess "taiji"
+            ["run", "--config", "config.yml"] (Just $ T.unpack $ _current_wd st) Nothing
         traceM "process started"
-        putMVar state $ Just p
+        putMVar state $ st{_current_process = Just p}
         sourceHandle e =$= linesUnboundedAsciiC =$=
             concatMapC (processMsg . strip) $$
             mapM_C (sendResult conn)
@@ -95,5 +103,5 @@ strip = B.pack . reverse . fst . B.foldl' f ([], False)
 
 main :: IO ()
 main = do
-    state <- newMVar Nothing
+    state <- newMVar $ ServerState Nothing "./"
     WS.runServer "0.0.0.0" 8787 $ application state

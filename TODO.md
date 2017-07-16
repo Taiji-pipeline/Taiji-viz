@@ -1,3 +1,5 @@
 - [x] Execute remote commands from the client side.
 - [x] Add box for nodes.
 - [x] Get node states.
+- [ ] Send Delete Command.
+- [ ] Show node status in sidebar.

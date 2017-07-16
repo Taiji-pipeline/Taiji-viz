@@ -37,8 +37,10 @@ layoutGraph' = G.graphToGraph params
     fmtnode (_, (i, attr)) = [G.Label $ G.StrLabel $ TL.fromStrict i]
     params = G.nonClusteredParams
         { G.globalAttributes =
-            [ G.NodeAttrs [G.Shape G.BoxShape]
-            , G.GraphAttrs [G.RankDir G.FromBottom , G.Splines G.SplineEdges]
+            [ G.NodeAttrs [G.Shape G.BoxShape, G.Margin $ G.DVal 0.2]
+            , G.GraphAttrs
+                [ G.RankDir G.FromBottom
+                , G.Splines G.SplineEdges ]
             ]
         , G.fmtNode = fmtnode
         , G.isDirected = True
