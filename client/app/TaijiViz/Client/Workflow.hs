@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE RecursiveDo           #-}
 
 module TaijiViz.Client.Workflow
     ( displayWorkflow
@@ -11,9 +11,11 @@ module TaijiViz.Client.Workflow
     ) where
 
 import           Control.Monad
+import qualified Data.HashSet                   as S
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Text                      as T
-import           Reflex.Dom.Contrib.Widgets.Svg (svg, svgAttr, svgDynAttr', svgAttr')
+import           Reflex.Dom.Contrib.Widgets.Svg (svg, svgAttr, svgAttr',
+                                                 svgDynAttr')
 import           Reflex.Dom.Core
 import           Scientific.Workflow.Types      (Attribute (..), PID)
 
@@ -22,8 +24,8 @@ import           TaijiViz.Common.Types
 type NodeStateUpdate t = Event t Result
 
 data NodeEvents t = NodeEvents
-    { nodeHover :: Event t (PID, Attribute)
-    , nodeClick :: Event t PID
+    { _node_hover :: Event t (PID, Attribute)
+    , _node_click :: Event t PID
     }
 
 displayWorkflow :: MonadWidget t m

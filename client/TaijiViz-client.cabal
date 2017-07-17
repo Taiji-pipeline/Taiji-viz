@@ -21,7 +21,7 @@ executable ghcjs-exe
   other-modules:       TaijiViz.Client.Message
                        TaijiViz.Client.Types
                        TaijiViz.Client.Workflow
-                       TaijiViz.Client.UI.Header
+                       TaijiViz.Client.UI
 
   build-depends:
       base
@@ -39,6 +39,7 @@ executable ghcjs-exe
     , ghcjs-dom-jsffi
     , lens
     , aeson
+    , unordered-containers
     , SciFlow
     , vector
   default-language:    Haskell2010

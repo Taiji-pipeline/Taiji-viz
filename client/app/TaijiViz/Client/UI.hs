@@ -4,18 +4,21 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecursiveDo           #-}
 
-module TaijiViz.Client.UI.Header
+module TaijiViz.Client.UI
     ( MenuEvent(..)
     , header
     ) where
 
+import Control.Monad
 import qualified Data.Vector                   as V
 import qualified Data.Text as T
 import           Reflex.Dom.Core
 import           Reflex.Dom.SemanticUI
 import           Reflex.Dom.SemanticUI.Sidebar
+import qualified Data.HashSet as S
 
 import           TaijiViz.Client.Message
+import           TaijiViz.Client.Workflow (NodeEvents(..))
 import           TaijiViz.Client.Types
 import           TaijiViz.Common.Types
 
@@ -27,16 +30,16 @@ data MenuEvent t = MenuEvent
     }
 
 header :: MonadWidget t m
-       => ((Event t Result, MenuEvent t) -> m (Event t Result))
+       => ((Event t Result, MenuEvent t) -> m (Event t (NodeEvents t)))
        -> m ()
 header content = do
     uiSidebar sidebarOptions sidebarMenu pusher (fmap (const ToggleSidebar))
     return ()
   where
     pusher = do
-        rec menuEvts <- uiMenu menuInput
-            menuInput <- handleMenuRun menuEvts
-            content (menuInput, menuEvts)
+        rec menuEvts <- menu menuInput
+            menuInput <- handleMenuRun nodeEvts menuEvts
+            nodeEvts <- content (menuInput, menuEvts)
         return $ _menu_toggle menuEvts
     sidebarMenu = do
         linkClass "Home" "item"
@@ -49,8 +52,10 @@ header content = do
         , _uiSidebar_className = ["menu", "vertical"]
         }
 
-uiMenu :: MonadWidget t m => MenuInput t -> m (MenuEvent t)
-uiMenu clickRunResult = divClass "ui fixed inverted menu" $ do
+menu :: MonadWidget t m
+     => RunResult t -- ^ The result of clicking the run button
+     -> m (MenuEvent t)
+menu clickRunResult = divClass "ui fixed inverted menu" $ do
     link <- linkClass "Menu" "item"
 
     rec (e, _) <- elClass' "div" "item" $ do
@@ -83,12 +88,32 @@ uiMenu clickRunResult = divClass "ui fixed inverted menu" $ do
     combine x Nothing = x
     combine x y = x
 
+type RunResult t = Event t Result
+
+-- | Handle the "Run" button in the menu.
 handleMenuRun :: MonadWidget t m
-              => MenuEvent t
-              -> m (Event t Result)
-handleMenuRun MenuEvent{..} = do
-    let evt = tag (current _menu_cwd) _menu_run
-    result <- sendMsg $ const (Run []) <$> ffilter (not . T.null) evt
+              => Event t (NodeEvents t)
+              -> MenuEvent t
+              -> m (RunResult t)
+handleMenuRun evts MenuEvent{..} = do
+    clkNode <- handleNodeClickEvent evts
+    let runEvt = attach (current clkNode) $ tag (current _menu_cwd) _menu_run
+    result <- sendMsg $ fn <$> ffilter (not . T.null . snd) runEvt
     return $ leftmost [ result
         , const (Exception "Please set working directory first") <$>
-        ffilter T.null evt ]
+        ffilter (T.null . snd) runEvt ]
+  where
+    fn (pids, _) | S.null pids = Run []
+                 | otherwise = Run $ S.toList pids
+
+handleNodeClickEvent :: MonadWidget t m
+                     => Event t (NodeEvents t) -> m (Dynamic t (S.HashSet T.Text))
+handleNodeClickEvent evts = do
+    flatEvt <- switchPromptOnly never $ _node_click <$> evts
+    let evts' = leftmost [ const Nothing <$> evts, Just <$> flatEvt ]
+    foldDyn f S.empty evts'
+  where
+    f Nothing _ = S.empty
+    f (Just pid) set = if S.member pid set
+        then S.delete pid set
+        else S.insert pid set

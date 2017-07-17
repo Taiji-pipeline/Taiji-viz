@@ -2,30 +2,26 @@
 module Main where
 
 import           Conduit
-import           Control.Concurrent         (MVar, newMVar, putMVar, takeMVar)
-import qualified Data.ByteString.Char8      as B
-import qualified Data.Graph.Inductive.Graph as G
-import           Data.Serialize             (decode, encode)
-import qualified Data.Text                  as T
-import qualified Network.WebSockets         as WS
-import           System.IO
-import           System.Process             (ProcessHandle, getProcessExitCode,
-                                             runInteractiveProcess,
-                                             terminateProcess)
+import           Control.Concurrent       (MVar, newMVar, putMVar, takeMVar)
+import qualified Data.ByteString.Char8    as B
+import           Data.Serialize           (decode, encode)
+import qualified Data.Text                as T
+import qualified Network.WebSockets       as WS
+import           System.Process           (ProcessHandle, getProcessExitCode,
+                                           runInteractiveProcess,
+                                           terminateProcess)
 
-import           TaijiViz.Common.Types      (Command (..), NodeState (..),
-                                             ProgramStatus (..), Result (..))
-import           TaijiViz.Server.Types
+import           TaijiViz.Common.Types    (Command (..), NodeState (..),
+                                           ProgramStatus (..), Result (..))
 import           TaijiViz.Server.Workflow
 
-import           Control.Concurrent         (threadDelay)
+import           Control.Concurrent       (threadDelay)
 import           Debug.Trace
 
 data ServerState = ServerState
     { _current_process :: Maybe ProcessHandle
-    , _current_wd :: T.Text
+    , _current_wd      :: T.Text
     }
-
 
 sendResult :: WS.Connection -> Result -> IO ()
 sendResult conn r = do
@@ -55,10 +51,10 @@ handleMsg state conn msg = case msg of
         st <- takeMVar state
         sendGraph conn $ T.unpack cwd ++ "/sciflow.db"
         putMVar state st{_current_wd = cwd}
-    Run _     -> do
+    Run selected     -> do
         st <- takeMVar state
         case _current_process st of
-            Nothing -> startProgram st
+            Nothing -> startProgram st selected
             Just h -> do
                 exitCode <- getProcessExitCode h
                 case exitCode of
@@ -66,13 +62,18 @@ handleMsg state conn msg = case msg of
                         terminateProcess h
                         traceM "process stopped"
                         putMVar state st{_current_process=Nothing}
-                    Just _ -> startProgram st
+                    Just _ -> startProgram st selected
   where
-    startProgram st = do
+    startProgram st selected = do
+        let selection | null selected = []
+                      | otherwise = ["--select", T.unpack $ T.intercalate "," selected]
         threadDelay 2000000
         sendResult conn $ Status Running
-        (_,_,e,p) <- runInteractiveProcess "taiji"
-            ["run", "--config", "config.yml"] (Just $ T.unpack $ _current_wd st) Nothing
+        (_,_,e,p) <- do
+            traceM $ show selection
+            runInteractiveProcess "taiji"
+                (["run", "--config", "config.yml"] ++ selection)
+                (Just $ T.unpack $ _current_wd st) Nothing
         traceM "process started"
         putMVar state $ st{_current_process = Just p}
         sourceHandle e =$= linesUnboundedAsciiC =$=
@@ -82,11 +83,11 @@ handleMsg state conn msg = case msg of
         sendResult conn $ Status Stopped
 
 processMsg :: B.ByteString -> Maybe Result
-processMsg x | isMsg x = Just result
-             | otherwise = Nothing
+processMsg msg | isMsg msg = Just result
+               | otherwise = Nothing
   where
     isMsg x = "[LOG][" `B.isPrefixOf` x || "[WARN][" `B.isPrefixOf` x
-    result = let [state, pid] = take 2 $ reverse $ B.words x
+    result = let [state, pid] = take 2 $ reverse $ B.words msg
                  st = case () of
                      _ | "running" `B.isPrefixOf` state -> InProgress
                        | "Failed" `B.isPrefixOf` state -> Failed

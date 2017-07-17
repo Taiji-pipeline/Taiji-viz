@@ -7,26 +7,21 @@ import qualified Data.Graph.Inductive.Graph        as G
 import           Data.Graph.Inductive.PatriciaTree (Gr)
 import qualified Data.GraphViz                     as G
 import qualified Data.GraphViz.Attributes.Complete as G
-import           Data.GraphViz.Commands.IO         (hGetDot)
-import           Data.GraphViz.Types.Generalised   (FromGeneralisedDot (..))
-import qualified Data.Map                          as M
-import           Data.Maybe                        (fromJust, mapMaybe)
+import           Data.Maybe                        (mapMaybe)
 import           Data.Serialize                    (decode)
 import qualified Data.Text                         as T
 import qualified Data.Text.Lazy                    as TL
 import           Scientific.Workflow.DB            (closeDB, isFinished, openDB)
 import           Scientific.Workflow.Types         (Attribute, PID)
 import           Shelly                            hiding (FilePath)
+import Control.Monad.IO.Class (liftIO)
 
-import           Debug.Trace
 import           TaijiViz.Common.Types
 
-
 getGraph :: IO (Gr (PID, Attribute) Int)
-getGraph = do
-    shelly $ silently $ escaping False $ run_ "taiji" ["view", "--raw", ">", "tmp"]
-    f <- B.readFile "tmp"
-    case decode f of
+getGraph = shelly $ silently $ runHandle "taiji" ["view", "--raw"] $ \h -> do
+    x <- liftIO $ B.hGetContents h
+    case decode x of
         Left err -> error err
         Right r  -> return r
 
@@ -34,7 +29,7 @@ layoutGraph' :: Gr (PID, Attribute) Int
              -> IO (Gr (G.AttributeNode (PID, Attribute)) (G.AttributeEdge Int))
 layoutGraph' = G.graphToGraph params
   where
-    fmtnode (_, (i, attr)) = [G.Label $ G.StrLabel $ TL.fromStrict i]
+    fmtnode (_, (i, _)) = [G.Label $ G.StrLabel $ TL.fromStrict i]
     params = G.nonClusteredParams
         { G.globalAttributes =
             [ G.NodeAttrs [G.Shape G.BoxShape, G.Margin $ G.DVal 0.2]
@@ -76,5 +71,4 @@ drawGraph db gr = do
         G.Pos (G.SplinePos splines) -> Just $ map getSpline splines
         _                           -> Nothing
     getSpline (G.Spline { G.splinePoints = pts}) = map fromPoint pts
-    getSpline _ = error "Don't know what to do with empty spline!"
     fromPoint (G.Point x y _ _) = (realToFrac x,realToFrac y)

@@ -33,7 +33,7 @@ import           Reflex.Dom.Xhr                     (XMLHttpRequest,
 
 import           TaijiViz.Client.Message
 import           TaijiViz.Client.Types
-import           TaijiViz.Client.UI.Header
+import           TaijiViz.Client.UI
 import           TaijiViz.Client.Workflow
 import           TaijiViz.Common.Types
 
@@ -85,18 +85,17 @@ dataViewer = do
 socketTester :: MonadWidget t m
              => (Event t Result, MenuEvent t)   -- ^ Use _menu_set_cwd event to update workflow
                               -- ^ use _menu_run event to update node status
-             -> m (Event t Result)
+             -> m (Event t (NodeEvents t))
 socketTester (input, MenuEvent{..}) = do
     divClass "ui grid" $ do
-        (response, evt) <- divClass "twelve wide column" $ do
+        evtOfevt <- divClass "twelve wide column" $ do
             response <- sendMsg $ SetCWD <$> tag (current _menu_cwd) _menu_set_cwd
-            evt <- holdDyn (return never)
-                (fmap nodeHover . displayWorkflow input <$> fmapMaybe getResult response ) >>= dyn
-            return (response, evt)
+            holdDyn (return $ NodeEvents never never)
+                (displayWorkflow input <$> fmapMaybe getResult response) >>= dyn
         divClass "four wide column" $ do
-            evt1 <- switchPromptly never evt
+            evt1 <- switchPromptly never (_node_hover <$> evtOfevt)
             nodeInfo =<< holdDyn Nothing (fmap Just evt1)
-        return response
+        return evtOfevt
   where
     url = "ws://yed.ucsd.edu:8787"
     fromEither (Left err) = error err

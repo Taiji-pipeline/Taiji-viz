@@ -13,8 +13,6 @@ import           Reflex.Dom.Core       (Event)
 
 import TaijiViz.Common.Types
 
-type MenuInput t = Event t Result
-
 instance FromJSON B.ByteString where
     parseJSON (String x) = return $ B.pack $ T.unpack x
     parseJSON _          = mzero
