@@ -2,20 +2,27 @@
 module Main where
 
 import           Conduit
-import           Control.Concurrent       (MVar, newMVar, putMVar, takeMVar)
-import qualified Data.ByteString.Char8    as B
-import           Data.Serialize           (decode, encode)
-import qualified Data.Text                as T
-import qualified Network.WebSockets       as WS
-import           System.Process           (ProcessHandle, getProcessExitCode,
-                                           runInteractiveProcess,
-                                           terminateProcess)
+import           Control.Concurrent             (MVar, newMVar, putMVar,
+                                                 takeMVar)
+import qualified Data.ByteString.Char8          as B
+import           Data.Serialize                 (decode, encode)
+import qualified Data.Text                      as T
+import           Network.Wai.Handler.Warp       (defaultSettings, runSettings,
+                                                 setHost, setPort)
+import           Network.Wai.Handler.WebSockets (websocketsOr)
+import qualified Network.WebSockets             as WS
+import           System.Process                 (ProcessHandle,
+                                                 getProcessExitCode,
+                                                 runInteractiveProcess,
+                                                 terminateProcess)
 
-import           TaijiViz.Common.Types    (Command (..), NodeState (..),
-                                           ProgramStatus (..), Result (..))
+import           TaijiViz.Common.Types          (Command (..), NodeState (..),
+                                                 ProgramStatus (..),
+                                                 Result (..))
+import           TaijiViz.Server.Http           (app)
 import           TaijiViz.Server.Workflow
 
-import           Control.Concurrent       (threadDelay)
+import           Control.Concurrent             (threadDelay)
 import           Debug.Trace
 
 data ServerState = ServerState
@@ -105,4 +112,5 @@ strip = B.pack . reverse . fst . B.foldl' f ([], False)
 main :: IO ()
 main = do
     state <- newMVar $ ServerState Nothing "./"
-    WS.runServer "0.0.0.0" 8787 $ application state
+    let app' = websocketsOr WS.defaultConnectionOptions (application state) app
+    runSettings (setHost "127.0.0.1" $ setPort 8787 $ defaultSettings) app'

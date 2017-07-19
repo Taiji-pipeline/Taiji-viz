@@ -27,6 +27,7 @@ data MenuEvent t = MenuEvent
     , _menu_run :: Event t ()
     , _menu_cwd :: Dynamic t T.Text
     , _menu_set_cwd :: Event t ()
+    , _menu_delete :: Event t ()
     }
 
 header :: MonadWidget t m
@@ -58,25 +59,35 @@ menu :: MonadWidget t m
 menu clickRunResult = divClass "ui fixed inverted menu" $ do
     link <- linkClass "Menu" "item"
 
-    rec (e, _) <- elClass' "div" "item" $ do
-            evts <- holdDyn (Just False) $ mergeWith combine
+        -- Working directory
+    rec (txt, c) <- divClass "item" $ divClass "ui action labeled input" $ do
+            divClass "ui label" $ text "working directory:"
+            txt <- textInput def
+            (e, _) <- flip (elDynClass' "button") (text "Refresh") $
+                flip fmap runStatus $ \x -> case x of
+                    Just False -> "ui button"
+                    _ -> "ui button disabled"
+            return (_textInput_value txt, domEvent Click e)
+
+        -- Run botton
+        runStatus <- holdDyn (Just False) $ mergeWith combine
                 [const Nothing <$> domEvent Click e, isRunning]
-            dyn $ flip fmap evts $ \x -> case x of
+        (e, _) <- elClass' "div" "item" $ do
+            dyn $ flip fmap runStatus $ \x -> case x of
                 Nothing -> elClass "button" "ui loading button" $ text "Loading"
-                Just False -> elClass "button" "ui icon labeled button" $ do
+                Just False -> elClass "button" "ui positive icon labeled button" $ do
                     elClass "i" "play icon" $ return ()
                     text "Run"
-                Just True -> elClass "button" "ui icon labeled button" $ do
+                Just True -> elClass "button" "ui negative icon labeled button" $ do
                     elClass "i" "pause icon" $ return ()
                     text "Stop"
 
-    (txt, c) <- divClass "item" $ divClass "ui action labeled input" $ do
-        divClass "ui label" $ text "working directory:"
-        txt <- textInput def
-        (e, _) <- elClass' "button" "ui compact button" $ text "Refresh"
-        return (_textInput_value txt, domEvent Click e)
+    -- Delete button
+    (del, _) <- elClass' "div" "item" $ elClass "button" "negative ui button" $
+        text "Delete"
 
     return $ MenuEvent (_link_clicked link) (domEvent Click e) txt c
+        (domEvent Click del)
   where
     isRunning = fmapMaybe fn clickRunResult
         where

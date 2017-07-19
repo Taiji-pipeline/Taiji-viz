@@ -13,10 +13,10 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-executable taiji-server
+executable taiji-viz
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -Wall -optl-static -optc-static -optl-pthread
 
   other-modules:       TaijiViz.Server.Types
                        TaijiViz.Server.Workflow
@@ -30,11 +30,16 @@ executable taiji-server
                      , containers
                      , graphviz
                      , fgl
+                     , file-embed
+                     , http-types
                      , process
                      , shelly
                      , SciFlow
                      , text
                      , websockets
+                     , wai
+                     , warp
+                     , wai-websockets
 
   default-language:    Haskell2010
 

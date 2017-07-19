@@ -97,7 +97,6 @@ socketTester (input, MenuEvent{..}) = do
             nodeInfo =<< holdDyn Nothing (fmap Just evt1)
         return evtOfevt
   where
-    url = "ws://yed.ucsd.edu:8787"
     fromEither (Left err) = error err
     fromEither (Right x) = x
     getResult (Raw bs) = Just $ fromEither $ decode bs
