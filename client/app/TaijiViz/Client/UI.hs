@@ -7,6 +7,7 @@
 module TaijiViz.Client.UI
     ( MenuEvent(..)
     , header
+    , handleNodeClickEvent
     ) where
 
 import Control.Monad
@@ -59,10 +60,10 @@ menu nodeEvts = divClass "ui fixed inverted menu" $ do
 
     link <- linkClass "Menu" "item"
 
-    rec (cwdEvts, canSetWD) <- handleMenuSetWD runEvts (c, txt)
+    rec (cwdEvts, canSetWD) <- handleMenuSetWD (runEvts, canRun) (c, txt)
         (runEvts, canRun) <- handleMenuRun selection cwdEvts $
             domEvent Click runButton
-        canDelete <- handleDelete selection runEvts
+        canDelete <- handleDelete selection (runEvts, canRun)
 
         -- Working directory
         (txt, c) <- divClass "item" $ divClass "ui action labeled input" $ do
@@ -75,7 +76,7 @@ menu nodeEvts = divClass "ui fixed inverted menu" $ do
             return (_textInput_value txt, domEvent Click e)
 
         -- Run botton
-        runStatus <- holdDyn (Just False) $ fmap isRunning runEvts
+        runStatus <- holdDyn (Just False) $ isRunning (runEvts, canRun)
         (runButton, _) <- elClass' "div" "item" $ dyn $ zipDynWith f canRun runStatus
 
         -- Delete button
@@ -88,11 +89,6 @@ menu nodeEvts = divClass "ui fixed inverted menu" $ do
     return $ MenuEvent (_link_clicked link) runEvts cwdEvts
         (domEvent Click delButton)
   where
-    isRunning x = case x of
-        Just (Status Running) -> Just True
-        Just (Status _) -> Just False
-        Just (Exception _) -> Just False
-        Nothing -> Nothing
     f a b = case a of
         False -> elClass "button" "disabled ui icon labeled button" $ do
             elClass "i" "play icon" $ return ()
@@ -105,6 +101,19 @@ menu nodeEvts = divClass "ui fixed inverted menu" $ do
             Just True -> elClass "button" "ui negative icon labeled button" $ do
                 elClass "i" "pause icon" $ return ()
                 text "Stop"
+
+isRunning :: Reflex t => (Event t (Maybe Result), Dynamic t Bool)
+          -> Event t (Maybe Bool)
+isRunning (result, canRun) = fmapMaybe fn $ fmap snd $ ffilter fst $
+    attach (current canRun) result
+  where
+    fn x = case x of
+        Just (Status Running) -> Just (Just True)
+        Just (Status _) -> Just (Just False)
+        Just (Exception _) -> Just (Just False)
+        Nothing -> Just Nothing
+        _ -> Nothing
+{-# INLINE isRunning #-}
 
 -- | "Run" button handler.
 -- Nothing: waiting for result
@@ -127,29 +136,29 @@ handleMenuRun clkNode set_cwd menu_run = do
 
 -- | "Set CWD" handler
 handleMenuSetWD :: MonadWidget t m
-                => Event t (Maybe Result)   -- Run event
+                => (Event t (Maybe Result), Dynamic t Bool)   -- Run event
                 -> (Event t (), Dynamic t T.Text)
                 -> m (Event t Result, Dynamic t Bool)
-handleMenuSetWD runEvts (set_cwd, cwd) = do
-    isAvailable <- holdDyn True $ fmap fn runEvts
+handleMenuSetWD runStatus (set_cwd, cwd) = do
+    isAvailable <- holdDyn True $ fmap fn $ isRunning runStatus
     response <- sendMsg $ fmap SetCWD $ tag (current cwd) $ ffilter id $
         tag (current isAvailable) set_cwd
     return (response, isAvailable)
   where
-    fn (Just (Status Running)) = False
+    fn (Just True) = False
     fn Nothing = False
     fn _ = True
 
 handleDelete :: MonadWidget t m
              => Dynamic t (S.HashSet T.Text)
-             -> Event t (Maybe Result)
+             -> (Event t (Maybe Result), Dynamic t Bool)
              -> m (Dynamic t Bool)
-handleDelete selection runEvts = do
-    a <- holdDyn True $ fmap fn runEvts
+handleDelete selection runStatus = do
+    a <- holdDyn True $ fmap fn $ isRunning runStatus
     let isAvailable = zipDynWith (&&) a $ fmap (not . S.null) selection
     return isAvailable
   where
-    fn (Just (Status Running)) = False
+    fn (Just True) = False
     fn Nothing = False
     fn _ = True
 

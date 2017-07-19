@@ -91,9 +91,11 @@ handleMsg state conn msg = case msg of
 
 processMsg :: B.ByteString -> Maybe Result
 processMsg msg | isMsg msg = Just result
+               | isErr msg = Just $ Exception $ T.pack $ B.unpack $ B.drop 8 msg
                | otherwise = Nothing
   where
     isMsg x = "[LOG][" `B.isPrefixOf` x || "[WARN][" `B.isPrefixOf` x
+    isErr = B.isPrefixOf "[ERROR]["
     result = let [state, pid] = take 2 $ reverse $ B.words msg
                  st = case () of
                      _ | "running" `B.isPrefixOf` state -> InProgress

@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE RecursiveDo           #-}
 
 module Main where
 
@@ -89,9 +90,18 @@ socketTester :: MonadWidget t m
 socketTester MenuEvent{..} = do
     divClass "ui grid" $ do
         evtOfevt <- divClass "twelve wide column" $ do
-            holdDyn (return $ NodeEvents never never)
-                ( displayWorkflow (fmapMaybe id _menu_run) <$>
-                fmapMaybe getResult _menu_set_cwd ) >>= dyn
+            msg <- holdDyn (return ()) $ flip fmap (fmapMaybe getError _menu_run) $ \err -> do
+                divClass "ui negative message" $ do
+                    elClass "i" "close icon" $ return ()
+                    divClass "header" $ text "There were some errors"
+                    el "p" $ text err
+            dyn msg
+
+            rec nodeEvts <- dyn =<< ( holdDyn (return $ NodeEvents never never) $
+                    displayWorkflow (fmapMaybe id _menu_run) selection <$>
+                    fmapMaybe getResult _menu_set_cwd )
+                selection <- handleNodeClickEvent nodeEvts
+            return nodeEvts
         divClass "four wide column" $ do
             evt1 <- switchPromptly never (_node_hover <$> evtOfevt)
             nodeInfo =<< holdDyn Nothing (fmap Just evt1)
@@ -101,6 +111,8 @@ socketTester MenuEvent{..} = do
     fromEither (Right x) = x
     getResult (Raw bs) = Just $ fromEither $ decode bs
     getResult _ = Nothing
+    getError (Just (Exception x)) = Just x
+    getError _ = Nothing
 
 main :: IO ()
 main = mainWidget $ do

@@ -30,13 +30,14 @@ data NodeEvents t = NodeEvents
 
 displayWorkflow :: MonadWidget t m
                 => NodeStateUpdate t
+                -> Dynamic t (S.HashSet T.Text)
                 -> Graph
                 -> m (NodeEvents t)
-displayWorkflow update Graph{..} = divClass "ui segment" $
+displayWorkflow update selection Graph{..} = divClass "ui segment" $
     svgAttr "svg"
         [ ("height", T.pack $ show $ max node_h edge_h + 50)
         , ("width", T.pack $ show $ max node_w edge_w + 50)
-        ] $ mkEdges edges >> mkNodes (fmapMaybe f update) nodes
+        ] $ mkEdges edges >> mkNodes (fmapMaybe f update) selection nodes
   where
     (node_w, node_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $
         map nodeCoord nodes
@@ -47,26 +48,32 @@ displayWorkflow update Graph{..} = divClass "ui segment" $
 
 mkNodes :: MonadWidget t m
         => Event t (PID, NodeState)
+        -> Dynamic t (S.HashSet T.Text)
         -> [Node]
         -> m (NodeEvents t)
-mkNodes update ns = do
+mkNodes update selection ns = do
     (evts1, evts2) <- fmap unzip $ forM ns $ \Node{..} -> do
         beh <- holdDyn nodeState $ fmap snd $ ffilter ((==nodeId) . fst) update
-        mouseEvt <- dyn $ flip fmap beh $ \st -> do
-            rec (e, _) <- do
-                    clk <- foldDyn (\_ x -> not x) False $ domEvent Click e
-                    let attr = flip fmap clk $ \c ->
-                            [ ( "x", T.pack $ show $ fst nodeCoord - nodeWidth / 2)
-                            , ( "y", T.pack $ show $ snd nodeCoord - 20)
-                            , ("rx", "6")
-                            , ("ry", "6")
-                            , ("width", T.pack $ show nodeWidth)
-                            , ("height", "30")
-                            , ("class", getClass st c)
-                            ]
-                    svgDynAttr' "rect" attr $ return ()
+        mouseEvt <- dyn $ fn beh selection $ \status select -> do
+            let isSelected | nodeId `S.member` select = "select"
+                           | otherwise = ""
+                st = case status of
+                    Finished   -> "done"
+                    InProgress -> "progress"
+                    Failed     -> "fail"
+                    Unknown    -> "await"
+                    _          -> "await"
+            (e, _) <- svgAttr' "rect"
+                [ ( "x", T.pack $ show $ fst nodeCoord - nodeWidth / 2)
+                , ( "y", T.pack $ show $ snd nodeCoord - 20)
+                , ("rx", "6")
+                , ("ry", "6")
+                , ("width", T.pack $ show nodeWidth)
+                , ("height", "30")
+                , ("class", T.unwords [st, isSelected]) ] $ return ()
             return ( const (nodeId, nodeAttr) <$> domEvent Mouseover e
                    , const nodeId <$> domEvent Click e )
+
         svgAttr "text"
             [ ("x", T.pack $ show $ fst nodeCoord)
             , ("y", T.pack $ show $ snd nodeCoord)
@@ -76,16 +83,7 @@ mkNodes update ns = do
         return (evt1, evt2)
     return $ NodeEvents (leftmost evts1) $ leftmost evts2
   where
-    getClass st x = T.unwords [c1,c2]
-      where
-        c1 = case st of
-            Finished   -> "done"
-            InProgress -> "progress"
-            Failed     -> "fail"
-            Unknown    -> "await"
-            _          -> "await"
-        c2 | x = "select"
-           | otherwise = ""
+    fn a b f = zipDynWith f a b
 {-# INLINE mkNodes #-}
 
 mkEdges :: MonadWidget t m => [Edge] -> m ()
