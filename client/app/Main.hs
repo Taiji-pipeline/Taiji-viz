@@ -83,15 +83,15 @@ dataViewer = do
         drawTable expressions ctx
 
 socketTester :: MonadWidget t m
-             => (Event t Result, MenuEvent t)   -- ^ Use _menu_set_cwd event to update workflow
+             => MenuEvent t   -- ^ Use _menu_set_cwd event to update workflow
                               -- ^ use _menu_run event to update node status
              -> m (Event t (NodeEvents t))
-socketTester (input, MenuEvent{..}) = do
+socketTester MenuEvent{..} = do
     divClass "ui grid" $ do
         evtOfevt <- divClass "twelve wide column" $ do
-            response <- sendMsg $ SetCWD <$> tag (current _menu_cwd) _menu_set_cwd
             holdDyn (return $ NodeEvents never never)
-                (displayWorkflow input <$> fmapMaybe getResult response) >>= dyn
+                ( displayWorkflow (fmapMaybe id _menu_run) <$>
+                fmapMaybe getResult _menu_set_cwd ) >>= dyn
         divClass "four wide column" $ do
             evt1 <- switchPromptly never (_node_hover <$> evtOfevt)
             nodeInfo =<< holdDyn Nothing (fmap Just evt1)

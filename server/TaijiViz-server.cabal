@@ -19,6 +19,8 @@ executable taiji-viz
   ghc-options:         -threaded -Wall -optl-static -optc-static -optl-pthread
 
   other-modules:       TaijiViz.Server.Types
+                       TaijiViz.Server.Files
+                       TaijiViz.Server.Http
                        TaijiViz.Server.Workflow
 
   build-depends:       base
