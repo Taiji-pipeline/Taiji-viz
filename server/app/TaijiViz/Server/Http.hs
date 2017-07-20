@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module TaijiViz.Server.Http
-    (app) where
+    (httpApp) where
 
 import Network.Wai
 import Network.HTTP.Types.Status (status200, status400)
@@ -31,8 +31,5 @@ router = M.fromList
 badRequest :: Response
 badRequest = responseLBS status400 [] BL.empty
 
-app :: Application
-app req respond = bracket_
-    (putStrLn "Allocating scarce resource")
-    (putStrLn "Cleaning up")
-    (respond $ M.findWithDefault badRequest (rawPathInfo req) router)
+httpApp :: Application
+httpApp req = \respond -> respond $ M.findWithDefault badRequest (rawPathInfo req) router

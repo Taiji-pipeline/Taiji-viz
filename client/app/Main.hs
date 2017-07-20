@@ -86,8 +86,9 @@ dataViewer = do
 socketTester :: MonadWidget t m
              => MenuEvent t   -- ^ Use _menu_set_cwd event to update workflow
                               -- ^ use _menu_run event to update node status
+             -> Event t Result
              -> m (Event t (NodeEvents t))
-socketTester MenuEvent{..} = do
+socketTester MenuEvent{..} initialization = do
     divClass "ui grid" $ do
         evtOfevt <- divClass "twelve wide column" $ do
             msg <- holdDyn (return ()) $ flip fmap (fmapMaybe getError _menu_run) $ \err -> do
@@ -99,7 +100,7 @@ socketTester MenuEvent{..} = do
 
             rec nodeEvts <- dyn =<< ( holdDyn (return $ NodeEvents never never) $
                     displayWorkflow (fmapMaybe id _menu_run) selection <$>
-                    fmapMaybe getResult _menu_set_cwd )
+                    fmapMaybe getResult (leftmost [initialization, _menu_set_cwd]) )
                 selection <- handleNodeClickEvent nodeEvts
             return nodeEvts
         divClass "four wide column" $ do
@@ -116,5 +117,7 @@ socketTester MenuEvent{..} = do
 
 main :: IO ()
 main = mainWidget $ do
-    header socketTester
+    pb <- getPostBuild
+    initialization <- sendMsg $ const Connect <$> pb
+    header (flip socketTester initialization)
     return ()

@@ -11,6 +11,8 @@ import           Scientific.Workflow.Types (Attribute, PID)
 -- | Commands that send from client to server.
 data Command = SetCWD T.Text
              | Run [T.Text]
+             | Delete [T.Text]
+             | Connect
              deriving (Generic)
 
 instance Serialize Command
@@ -40,6 +42,7 @@ instance Show Result where
     show (Status x) = "Status: " ++ show x
     show (Raw _) = "Raw"
     show (Notification pid st) = "Notification: " ++ show pid ++ " " ++ show st
+    show (Exception x) = "Exception: " ++ show x
 
 instance Serialize Result
 

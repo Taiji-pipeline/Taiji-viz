@@ -20,6 +20,7 @@ executable taiji-viz
 
   other-modules:       TaijiViz.Server.Types
                        TaijiViz.Server.Files
+                       TaijiViz.Server.Socket
                        TaijiViz.Server.Http
                        TaijiViz.Server.Workflow
 
