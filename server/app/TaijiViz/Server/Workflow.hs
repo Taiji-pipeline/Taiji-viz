@@ -39,14 +39,13 @@ layoutGraph' = G.graphToGraph params
         , G.isDirected = True
         }
 
-drawGraph :: (PID -> IO Bool)
+drawGraph :: (PID -> IO NodeState)
           -> Gr (G.AttributeNode (PID, Attribute)) (G.AttributeEdge Int)
           -> IO Graph
-drawGraph isFinished gr = do
+drawGraph query gr = do
     vmap <- forM nodes $ \(_, (attrs, (pid, att))) -> do
         let (pt, width) = getAttr attrs
-        finish <- isFinished pid
-        return $ Node pid att pt width $ if finish then Finished else Unknown
+        Node pid att pt width <$> query pid
     return $ Graph vmap edges
   where
     nodes = G.labNodes gr

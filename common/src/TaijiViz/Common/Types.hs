@@ -32,10 +32,11 @@ data NodeState = Finished
 instance Serialize NodeState
 
 -- | Results from running the commands, sent by the server to the client.
-data Result = Status ProgramStatus
-            | Raw ByteString
-            | Notification PID NodeState
-            | Exception T.Text
+data Result = Status ProgramStatus          -- ^ program status
+            | Raw ByteString                -- ^ some data
+            | Notification PID NodeState    -- ^ node status update
+            | Exception T.Text              -- ^ error message
+            | CWD T.Text                    -- ^ current working directory
     deriving (Generic)
 
 instance Show Result where
@@ -43,6 +44,7 @@ instance Show Result where
     show (Raw _) = "Raw"
     show (Notification pid st) = "Notification: " ++ show pid ++ " " ++ show st
     show (Exception x) = "Exception: " ++ show x
+    show (CWD x) = "CWD: " ++ show x
 
 instance Serialize Result
 

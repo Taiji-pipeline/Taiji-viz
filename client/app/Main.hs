@@ -119,5 +119,5 @@ main :: IO ()
 main = mainWidget $ do
     pb <- getPostBuild
     initialization <- sendMsg $ const Connect <$> pb
-    header (flip socketTester initialization)
+    header (InitialState initialization) (flip socketTester initialization)
     return ()

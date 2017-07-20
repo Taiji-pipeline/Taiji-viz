@@ -31,14 +31,15 @@ data MenuEvent t = MenuEvent
     }
 
 header :: MonadWidget t m
-       => ( MenuEvent t -> m (Event t (NodeEvents t)) )
+       => InitialState t
+       -> ( MenuEvent t -> m (Event t (NodeEvents t)) )
        -> m ()
-header content = do
+header initial content = do
     uiSidebar sidebarOptions sidebarMenu pusher (fmap (const ToggleSidebar))
     return ()
   where
     pusher = do
-        rec menuEvts <- menu nodeEvts
+        rec menuEvts <- menu initial nodeEvts
             nodeEvts <- content menuEvts
         return $ _menu_toggle menuEvts
     sidebarMenu = do
@@ -53,9 +54,10 @@ header content = do
         }
 
 menu :: MonadWidget t m
-     => Event t (NodeEvents t)
+     => InitialState t
+     -> Event t (NodeEvents t)
      -> m (MenuEvent t)
-menu nodeEvts = divClass "ui fixed inverted menu" $ do
+menu (InitialState initial) nodeEvts = divClass "ui fixed inverted menu" $ do
     selection <- handleNodeClickEvent nodeEvts
 
     link <- linkClass "Menu" "item"
@@ -68,7 +70,10 @@ menu nodeEvts = divClass "ui fixed inverted menu" $ do
         -- Working directory
         (txt, c) <- divClass "item" $ divClass "ui action labeled input" $ do
             divClass "ui label" $ text "working directory:"
-            txt <- textInput def
+            let setTxt = flip fmapMaybe initial $ \x -> case x of
+                    CWD txt -> Just txt
+                    _ -> Nothing
+            txt <- textInput def{_textInputConfig_setValue=setTxt}
             dynClass <- flip mapDyn canSetWD $ \x -> case x of
                 True -> "ui button"
                 False -> "ui button disabled"

@@ -18,6 +18,7 @@ sendMsg cmd = do
     url <- T.pack . unpack <$> liftJSM js_getUrl
     ws <- webSocket url def
         { _webSocketConfig_send = fmap (return . encode) cmd
+        , _webSocketConfig_reconnect = False
         }
     performEvent_ $ fmap (liftJSM . print) $ _webSocket_close ws
     return $ fromEither . decode <$> _webSocket_recv ws

@@ -13,6 +13,8 @@ import           Reflex.Dom.Core       (Event)
 
 import TaijiViz.Common.Types
 
+newtype InitialState t = InitialState (Event t Result)
+
 instance FromJSON B.ByteString where
     parseJSON (String x) = return $ B.pack $ T.unpack x
     parseJSON _          = mzero
