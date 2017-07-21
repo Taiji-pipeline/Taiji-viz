@@ -14,8 +14,7 @@ import           Control.Monad
 import qualified Data.HashSet                   as S
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Text                      as T
-import           Reflex.Dom.Contrib.Widgets.Svg (svg, svgAttr, svgAttr',
-                                                 svgDynAttr')
+import           Reflex.Dom.Contrib.Widgets.Svg (svgAttr, svgAttr')
 import           Reflex.Dom.Core
 import           Scientific.Workflow.Types      (Attribute (..), PID)
 
@@ -62,7 +61,6 @@ mkNodes update selection ns = do
                     InProgress -> "progress"
                     Failed     -> "fail"
                     Unknown    -> "await"
-                    _          -> "await"
             (e, _) <- svgAttr' "rect"
                 [ ( "x", T.pack $ show $ fst nodeCoord - nodeWidth / 2)
                 , ( "y", T.pack $ show $ snd nodeCoord - 20)
@@ -100,6 +98,7 @@ mkSpline ((x1,x2):pts) = svgAttr "path"
     spline = T.unwords ["M", T.pack $ show x1, T.pack $ show x2] `T.append`
         " " `T.append` "C " `T.append` T.intercalate ", "
         (flip map pts $ \(x,y) -> T.unwords [T.pack $ show x, T.pack $ show y])
+mkSpline _ = return ()
 {-# INLINE mkSpline #-}
 
 nodeInfo :: MonadWidget t m => Dynamic t (Maybe (PID, Attribute)) -> m ()

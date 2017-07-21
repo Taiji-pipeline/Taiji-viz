@@ -106,9 +106,7 @@ socketTester (ServerResponse response) = do
             nodeInfo =<< holdDyn Nothing (fmap Just evt1)
         return evtOfevt
   where
-    fromEither (Left err) = error err
-    fromEither (Right x) = x
-    getResult (Raw bs) = Just $ fromEither $ decode bs
+    getResult (Gr g) = Just g
     getResult _ = Nothing
     getError (Exception x) = Just x
     getError _ = Nothing
@@ -117,7 +115,12 @@ main :: IO ()
 main = mainWidget $ do
     pb <- getPostBuild
 
-    rec let reqs = leftmost [const Connect <$> pb, _menu_run menuEvts, _menu_set_cwd menuEvts]
+    rec let reqs = leftmost
+                [ const Connect <$> pb
+                , _menu_run menuEvts
+                , _menu_set_cwd menuEvts
+                , _menu_delete menuEvts
+                ]
         initialization <- ServerResponse <$> sendMsg reqs
         menuEvts <- header initialization (socketTester initialization)
 

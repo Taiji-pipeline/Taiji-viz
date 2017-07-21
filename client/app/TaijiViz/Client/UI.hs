@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE RecursiveDo           #-}
 
 module TaijiViz.Client.UI
@@ -10,24 +10,24 @@ module TaijiViz.Client.UI
     , handleNodeClickEvent
     ) where
 
-import Control.Monad
+import           Control.Monad
+import qualified Data.HashSet                  as S
+import qualified Data.Text                     as T
 import qualified Data.Vector                   as V
-import qualified Data.Text as T
-import           Reflex.Dom.Core
+import           Reflex.Dom.Core               hiding (Delete)
 import           Reflex.Dom.SemanticUI
 import           Reflex.Dom.SemanticUI.Sidebar
-import qualified Data.HashSet as S
 
 import           TaijiViz.Client.Message
-import           TaijiViz.Client.Workflow (NodeEvents(..))
 import           TaijiViz.Client.Types
+import           TaijiViz.Client.Workflow      (NodeEvents (..))
 import           TaijiViz.Common.Types
 
 data MenuEvent t = MenuEvent
-    { _menu_toggle :: Event t ()
-    , _menu_run :: Event t Command
+    { _menu_toggle  :: Event t ()
+    , _menu_run     :: Event t Command
     , _menu_set_cwd :: Event t Command
-    , _menu_delete :: Event t ()
+    , _menu_delete  :: Event t Command
     }
 
 header :: MonadWidget t m
@@ -62,19 +62,20 @@ menu response@(ServerResponse r) nodeEvts = divClass "ui fixed inverted menu" $ 
     link <- linkClass "Menu" "item"
 
     rec (runEvts, runBtnSt) <- handleMenuRun response selection $
-        let (cwdEvts, canSetWD) = handleMenuSetWD runBtnSt (c, txt)
-            canDelete = handleDelete selection runBtnSt
             domEvent Click runButton
+        let (cwdEvts, canSetWD) = handleMenuSetWD runBtnSt (c, txt)
+            (delEvts, canDelete) = handleDelete selection runBtnSt $
+                domEvent Click delButton
 
         -- Working directory
         (txt, c) <- divClass "item" $ divClass "ui action labeled input" $ do
             divClass "ui label" $ text "working directory:"
             let setTxt = flip fmapMaybe r $ \x -> case x of
                     CWD txt -> Just txt
-                    _ -> Nothing
+                    _       -> Nothing
             txt <- textInput def{_textInputConfig_setValue=setTxt}
             dynClass <- flip mapDyn canSetWD $ \x -> case x of
-                True -> "ui button"
+                True  -> "ui button"
                 False -> "ui button disabled"
             (e, _) <- elDynClass' "button" dynClass $ text "Refresh"
             return (_textInput_value txt, domEvent Click e)
@@ -96,12 +97,11 @@ menu response@(ServerResponse r) nodeEvts = divClass "ui fixed inverted menu" $ 
         -- Delete button
         (delButton, _) <- elClass' "div" "item" $ do
             dynClass <- flip mapDyn canDelete $ \x -> case x of
-                True -> "ui button negative"
+                True  -> "ui button negative"
                 False -> "ui button negative disabled"
             elDynClass "button" dynClass $ text "Delete"
 
-    return $ MenuEvent (_link_clicked link) runEvts cwdEvts
-        (domEvent Click delButton)
+    return $ MenuEvent (_link_clicked link) runEvts cwdEvts delEvts
 
 data RunButtonState = ShowRun
                     | ShowStop
@@ -124,12 +124,12 @@ handleMenuRun (ServerResponse response) clkNode menu_run = do
   where
     f ShowLoad Disabled = Nothing
     f ShowLoad ShowLoad = Nothing
-    f new old = Just new
+    f new old           = Just new
     response' = flip fmapMaybe response $ \x -> case x of
-        Raw _ -> Just ShowRun
+        Gr _          -> Just ShowRun
         Status Running -> Just ShowStop
         Status Stopped -> Just ShowRun
-        _ -> Nothing
+        _              -> Nothing
 
 -- | "Set CWD" handler
 handleMenuSetWD :: Reflex t
@@ -140,7 +140,7 @@ handleMenuSetWD runBtnSt (set_cwd, cwd) = (req, isAvailable)
   where
     isAvailable = flip fmap runBtnSt $ \st -> case st of
         Disabled -> True
-        ShowRun -> True
+        ShowRun  -> True
         ShowLoad -> False
         ShowStop -> False
     req = fmap SetCWD $ tag (current cwd) $ ffilter id $
@@ -149,13 +149,16 @@ handleMenuSetWD runBtnSt (set_cwd, cwd) = (req, isAvailable)
 handleDelete :: Reflex t
              => Dynamic t (S.HashSet T.Text)
              -> Dynamic t RunButtonState
-             -> Dynamic t Bool
-handleDelete selection runBtnSt =
-    zipDynWith (&&) isStop $ fmap (not . S.null) selection
+             -> Event t ()
+             -> (Event t Command, Dynamic t Bool)
+handleDelete selection runBtnSt evt = (req, isAvailable)
   where
+    req = fmap (Delete . S.toList) $ tag (current selection) $ ffilter id $
+        tag (current isAvailable) evt
+    isAvailable = zipDynWith (&&) isStop $ fmap (not . S.null) selection
     isStop = flip fmap runBtnSt $ \st -> case st of
         Disabled -> True
-        ShowRun -> True
+        ShowRun  -> True
         ShowLoad -> False
         ShowStop -> False
 

@@ -5,18 +5,19 @@ module TaijiViz.Server.Socket
     , socketApp
     ) where
 
-import Control.Monad (forever)
 import           Conduit
-import           Control.Concurrent       (MVar, modifyMVar_, readMVar, forkIO)
+import           Control.Concurrent       (MVar, forkIO, modifyMVar_, readMVar)
 import           Control.Exception        (bracket, finally)
+import           Control.Monad            (forM_, forever)
 import qualified Data.ByteString.Char8    as B
-import qualified Data.Map.Strict                 as M
+import qualified Data.Map.Strict          as M
 import           Data.Maybe               (fromJust)
 import           Data.Serialize           (decode, encode)
 import qualified Data.Text                as T
 import qualified Network.WebSockets       as WS
 import           Scientific.Workflow.DB   (closeDB, isFinished, openDB)
-import           Shelly                   (shelly, test_f, fromText)
+import           Shelly                   (chdir, fromText, run_, shelly,
+                                           test_f)
 import           System.Process           (CreateProcess (..), ProcessHandle,
                                            StdStream (..), createProcess,
                                            interruptProcessGroupOf, proc)
@@ -32,7 +33,7 @@ data ServerState = ServerState
     , _current_wd      :: Maybe T.Text
     , _is_running      :: Bool
     , _node_status     :: M.Map T.Text NodeState
-    , _main_conn :: Maybe WS.Connection
+    , _main_conn       :: Maybe WS.Connection
     }
 
 defaultServerState :: ServerState
@@ -74,7 +75,7 @@ initialize state conn = do
             sendResult conn $ CWD wd
             getGraph >>= layoutGraph' >>=
                 drawGraph (query (_node_status st)) >>=
-                WS.sendBinaryData conn . encode . Raw . encode
+                sendResult conn . Gr
             if _is_running st
                 then sendResult conn $ Status Running
                 else sendResult conn $ Status Stopped
@@ -95,7 +96,13 @@ handleMsg state conn msg = case msg of
         if _is_running st
             then stopTaiji state (fromJust $ _current_process st) conn
             else forkIO (runTaiji state selected conn) >> return ()
-    Delete selected -> undefined
+    Delete selected -> do
+        wd <- _current_wd <$> readMVar state
+        forM_ selected $ \pid -> do
+            shelly $ chdir (fromText $ fromJust wd) $ run_ "taiji" ["rm", pid]
+            modifyMVar_ state $ \x -> return
+                x{ _node_status = M.delete pid (_node_status x)}
+            sendResult conn $ Notification pid Unknown
     _ -> return ()
 
 sendResult :: WS.Connection -> Result -> IO ()
@@ -108,7 +115,7 @@ sendResult' state r = do
     conn <- _main_conn <$> readMVar state
     case conn of
         Nothing -> return ()
-        Just c -> sendResult c r
+        Just c  -> sendResult c r
 
 sendGraph :: MVar ServerState
           -> WS.Connection
@@ -120,7 +127,7 @@ sendGraph state conn db = do
     graph' <- if exist
         then bracket (openDB db) closeDB $ \h -> drawGraph (readStatus h) graph
         else drawGraph (const (return Unknown)) graph
-    WS.sendBinaryData conn $ encode $ Raw $ encode graph'
+    sendResult conn $ Gr graph'
   where
     readStatus h pid = do
         finished <- isFinished pid h
