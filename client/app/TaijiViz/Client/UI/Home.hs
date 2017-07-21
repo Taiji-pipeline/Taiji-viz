@@ -8,14 +8,15 @@ module TaijiViz.Client.UI.Home
     ( home
     ) where
 
+import           Control.Arrow            (second)
 import qualified Data.HashSet             as S
 import qualified Data.Text                as T
 import           Reflex.Dom.Core          hiding (Delete)
+import           Scientific.Workflow.Types      (_note)
 
 import           TaijiViz.Client.Message
 import           TaijiViz.Client.Types
-import           TaijiViz.Client.Workflow (NodeEvents (..), displayWorkflow,
-                                           nodeInfo)
+import           TaijiViz.Client.Workflow (NodeEvents (..), displayWorkflow)
 import           TaijiViz.Common.Types
 
 data MenuEvent t = MenuEvent
@@ -187,12 +188,20 @@ socketTester (ServerResponse response) = do
                     fmapMaybe getResult response )
                 selection <- handleNodeClickEvent nodeEvts
             return nodeEvts
-        divClass "four wide column" $ do
-            evt1 <- switchPromptly never (_node_hover <$> evtOfevt)
-            nodeInfo =<< holdDyn Nothing (fmap Just evt1)
+        divClass "four wide column" $
+            switchPromptly never (_node_hover <$> evtOfevt) >>=
+                holdDyn ("", "") . fmap (second _note) >>= displayNodeInfo
         return evtOfevt
   where
     getResult (Gr g) = Just g
     getResult _      = Nothing
     getError (Exception x) = Just x
     getError _             = Nothing
+
+displayNodeInfo :: MonadWidget t m => Dynamic t (T.Text, T.Text) -> m ()
+displayNodeInfo info = divClass "info-bar" $
+    divClass "ui card" $ divClass "content" $ do
+        divClass "header" $ dynText $ fmap fst info
+        divClass "description" $ el "p" $ dynText $ fmap snd info
+        return ()
+{-# INLINE displayNodeInfo #-}

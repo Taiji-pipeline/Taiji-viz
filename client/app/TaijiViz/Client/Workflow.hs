@@ -6,15 +6,15 @@
 
 module TaijiViz.Client.Workflow
     ( displayWorkflow
-    , nodeInfo
     , NodeEvents(..)
     ) where
 
 import           Control.Monad
 import qualified Data.HashSet                   as S
+import qualified Data.Map                       as M
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Text                      as T
-import           Reflex.Dom.Contrib.Widgets.Svg (svgAttr, svgAttr')
+import           Reflex.Dom.Contrib.Widgets.Svg (svgAttr, svgAttr', svgDynAttr')
 import           Reflex.Dom.Core
 import           Scientific.Workflow.Types      (Attribute (..), PID)
 
@@ -52,36 +52,38 @@ mkNodes :: MonadWidget t m
         -> m (NodeEvents t)
 mkNodes update selection ns = do
     (evts1, evts2) <- fmap unzip $ forM ns $ \Node{..} -> do
-        beh <- holdDyn nodeState $ fmap snd $ ffilter ((==nodeId) . fst) update
-        mouseEvt <- dyn $ fn beh selection $ \status select -> do
-            let isSelected | nodeId `S.member` select = "select"
-                           | otherwise = ""
-                st = case status of
-                    Finished   -> "done"
-                    InProgress -> "progress"
-                    Failed     -> "fail"
-                    Unknown    -> "await"
-            (e, _) <- svgAttr' "rect"
+        statusUpdate <- holdDyn nodeState $ fmap snd $
+            ffilter ((==nodeId) . fst) update
+        let baseAttr =
                 [ ( "x", T.pack $ show $ fst nodeCoord - nodeWidth / 2)
                 , ( "y", T.pack $ show $ snd nodeCoord - 20)
                 , ("rx", "6")
                 , ("ry", "6")
                 , ("width", T.pack $ show nodeWidth)
-                , ("height", "30")
-                , ("class", T.unwords [st, isSelected]) ] $ return ()
-            return ( const (nodeId, nodeAttr) <$> domEvent Mouseover e
-                   , const nodeId <$> domEvent Click e )
+                , ("height", "30") ] :: [(T.Text, T.Text)]
+            fn st slct =
+                let cls = T.unwords [st', isSelected]
+                    isSelected | nodeId `S.member` slct = "select"
+                               | otherwise = ""
+                    st' = case st of
+                        Finished   -> "done"
+                        InProgress -> "progress"
+                        Failed     -> "fail"
+                        Unknown    -> "await"
+                in M.fromList $ ("class", cls) : baseAttr
+            attr = zipDynWith fn statusUpdate selection
+        (e, _) <- svgDynAttr' "rect" attr $ return ()
 
         svgAttr "text"
             [ ("x", T.pack $ show $ fst nodeCoord)
             , ("y", T.pack $ show $ snd nodeCoord)
-            , ("text-anchor", "middle") ] $ text nodeId
-        evt1 <- switchPromptly never $ fmap fst mouseEvt
-        evt2 <- switchPromptly never $ fmap snd mouseEvt
-        return (evt1, evt2)
+            , ("text-anchor", "middle")
+            , ("z-index", "9") ] $ text nodeId
+
+        return ( const (nodeId, nodeAttr) <$> domEvent Mouseover e
+               , const nodeId <$> domEvent Click e )
+
     return $ NodeEvents (leftmost evts1) $ leftmost evts2
-  where
-    fn a b f = zipDynWith f a b
 {-# INLINE mkNodes #-}
 
 mkEdges :: MonadWidget t m => [Edge] -> m ()
@@ -100,12 +102,3 @@ mkSpline ((x1,x2):pts) = svgAttr "path"
         (flip map pts $ \(x,y) -> T.unwords [T.pack $ show x, T.pack $ show y])
 mkSpline _ = return ()
 {-# INLINE mkSpline #-}
-
-nodeInfo :: MonadWidget t m => Dynamic t (Maybe (PID, Attribute)) -> m ()
-nodeInfo x = divClass "info-bar" $
-    divClass "ui card" $ divClass "content" $ do
-        divClass "header" $ dyn $ fmap (text . getText fst) x
-        divClass "description" $ el "p" $ dyn $ fmap (text . getText (_note . snd)) x
-        return ()
-  where
-    getText f = fromMaybe "" . fmap f
