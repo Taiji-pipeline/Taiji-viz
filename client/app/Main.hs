@@ -19,7 +19,6 @@ import           Control.Monad                      (forM_)
 import           Control.Monad.IO.Class             (liftIO)
 import qualified Data.ByteString.Char8              as B
 import           Data.Maybe                         (fromJust)
-import           Data.Serialize                     (decode)
 import qualified Data.Text                          as T
 import           GHCJS.DOM.CanvasRenderingContext2D (fillRect, putImageData,
                                                      setFillStyle)

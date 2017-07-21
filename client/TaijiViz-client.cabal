@@ -30,7 +30,7 @@ executable taiji-viz-client
       base
     , TaijiViz-common
     , bytestring
-    , cereal
+    , binary
     , fgl
     , ghcjs-base
     , containers

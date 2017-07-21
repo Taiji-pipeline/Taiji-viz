@@ -10,9 +10,10 @@ import           Control.Concurrent       (MVar, forkIO, modifyMVar_, readMVar)
 import           Control.Exception        (bracket, finally)
 import           Control.Monad            (forM_, forever)
 import qualified Data.ByteString.Char8    as B
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict          as M
 import           Data.Maybe               (fromJust)
-import           Data.Serialize           (decode, encode)
+import           Data.Binary (decode, encode)
 import qualified Data.Text                as T
 import qualified Network.WebSockets       as WS
 import           Scientific.Workflow.DB   (closeDB, isFinished, openDB)
@@ -53,18 +54,15 @@ socketApp state pending = do
         Nothing -> do
             conn <- WS.acceptRequest pending
             WS.forkPingThread conn 30
-            msg <- (fromEither . decode) <$> WS.receiveData conn
+            msg <- decode . BL.fromStrict <$> WS.receiveData conn
             case msg of
                 Connect -> flip finally (disconnect state) $ do
                     modifyMVar_ state $ \x -> return x{_main_conn=Just conn}
                     print "connected"
                     initialize state conn
-                    forever $ fromEither . decode <$> WS.receiveData conn >>=
+                    forever $ decode . BL.fromStrict <$> WS.receiveData conn >>=
                         handleMsg state conn
                 _ -> sendResult conn $ Exception "Invalid request"
-  where
-    fromEither (Left err) = error err
-    fromEither (Right x)  = x
 
 initialize :: MVar ServerState -> WS.Connection -> IO ()
 initialize state conn = do
@@ -108,7 +106,7 @@ handleMsg state conn msg = case msg of
 sendResult :: WS.Connection -> Result -> IO ()
 sendResult conn r = do
     traceM $ "Sending: " ++ show r
-    WS.sendBinaryData conn $ encode r
+    WS.sendBinaryData conn $ BL.toStrict $ encode r
 
 sendResult' :: MVar ServerState -> Result -> IO ()
 sendResult' state r = do

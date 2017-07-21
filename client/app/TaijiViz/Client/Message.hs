@@ -3,9 +3,9 @@
 
 module TaijiViz.Client.Message where
 
-import Data.Serialize (encode)
+import Data.Binary (encode, decode)
+import qualified Data.ByteString.Lazy as BL
 import Reflex.Dom.Core
-import Data.Serialize (decode)
 import qualified Data.Text as T
 
 import TaijiViz.Common.Types
@@ -17,11 +17,11 @@ sendMsg :: MonadWidget t m => Event t Command -> m (Event t Result)
 sendMsg cmd = do
     url <- T.pack . unpack <$> liftJSM js_getUrl
     ws <- webSocket url def
-        { _webSocketConfig_send = fmap (return . encode) cmd
+        { _webSocketConfig_send = fmap (return . BL.toStrict . encode) cmd
         , _webSocketConfig_reconnect = False
         }
     performEvent_ $ fmap (liftJSM . print) $ _webSocket_close ws
-    return $ fromEither . decode <$> _webSocket_recv ws
+    return $ decode . BL.fromStrict <$> _webSocket_recv ws
   where
     fromEither (Left err) = error err
     fromEither (Right x) = x

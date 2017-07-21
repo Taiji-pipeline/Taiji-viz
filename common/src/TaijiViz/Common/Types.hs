@@ -2,8 +2,8 @@
 module TaijiViz.Common.Types where
 
 import           Data.ByteString           (ByteString)
-import           Data.Serialize            (Serialize)
-import           Data.Serialize.Text       ()
+import           Data.Binary (Binary)
+import           Data.Text.Binary ()
 import qualified Data.Text                 as T
 import           GHC.Generics              (Generic)
 import           Scientific.Workflow.Types (Attribute, PID)
@@ -15,13 +15,13 @@ data Command = SetCWD T.Text
              | Connect
              deriving (Generic)
 
-instance Serialize Command
+instance Binary Command
 
 data ProgramStatus = Running
                    | Stopped
                    deriving (Generic, Show)
 
-instance Serialize ProgramStatus
+instance Binary ProgramStatus
 
 data NodeState = Finished
                | Failed
@@ -29,7 +29,7 @@ data NodeState = Finished
                | Unknown
                deriving (Generic, Show)
 
-instance Serialize NodeState
+instance Binary NodeState
 
 -- | Results from running the commands, sent by the server to the client.
 data Result = Status ProgramStatus          -- ^ program status
@@ -46,9 +46,9 @@ instance Show Result where
     show (Exception x) = "Exception: " ++ show x
     show (CWD x) = "CWD: " ++ show x
 
-instance Serialize Result
+instance Binary Result
 
-type Point = (Float, Float)
+type Point = (Double, Double)
 
 type Spline = [Point]
 
@@ -56,11 +56,12 @@ data Node = Node
     { nodeId    :: PID
     , nodeAttr  :: Attribute
     , nodeCoord :: Point         -- ^ unit: point
-    , nodeWidth :: Float         -- ^ unit: point
+    , nodeWidth :: Double        -- ^ unit: point
     , nodeState :: NodeState
     } deriving (Generic)
 
-instance Serialize Node
+instance Binary Attribute
+instance Binary Node
 
 type Edge = [Spline]   -- ^ unit : point
 
@@ -69,4 +70,4 @@ data Graph = Graph
     , edges :: [Edge]
     } deriving (Generic)
 
-instance Serialize Graph
+instance Binary Graph
