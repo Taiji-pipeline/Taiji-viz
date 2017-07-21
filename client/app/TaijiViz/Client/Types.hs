@@ -7,13 +7,12 @@ import           Control.Monad         (mzero)
 import           Data.Aeson            (FromJSON (..), ToJSON (..), Value (..))
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Text             as T
-import           Data.Vector           (Vector)
 import           GHC.Generics          (Generic)
 import           Reflex.Dom.Core       (Event)
 
 import TaijiViz.Common.Types
 
-newtype InitialState t = InitialState (Event t Result)
+newtype ServerResponse t = ServerResponse (Event t Result)
 
 instance FromJSON B.ByteString where
     parseJSON (String x) = return $ B.pack $ T.unpack x

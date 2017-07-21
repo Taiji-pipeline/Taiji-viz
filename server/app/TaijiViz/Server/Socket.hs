@@ -5,9 +5,10 @@ module TaijiViz.Server.Socket
     , socketApp
     ) where
 
+import Control.Monad (forever)
 import           Conduit
-import           Control.Concurrent       (MVar, modifyMVar_, readMVar)
-import           Control.Exception        (bracket)
+import           Control.Concurrent       (MVar, modifyMVar_, readMVar, forkIO)
+import           Control.Exception        (bracket, finally)
 import qualified Data.ByteString.Char8    as B
 import qualified Data.Map.Strict                 as M
 import           Data.Maybe               (fromJust)
@@ -47,19 +48,19 @@ socketApp :: MVar ServerState -> WS.ServerApp
 socketApp state pending = do
     currentConn <- _main_conn <$> readMVar state
     case currentConn of
-        Just _ -> return ()
+        Just _ -> WS.rejectRequest pending "Can only have 1 connection at a time"
         Nothing -> do
             conn <- WS.acceptRequest pending
             WS.forkPingThread conn 30
             msg <- (fromEither . decode) <$> WS.receiveData conn
             case msg of
                 Connect -> flip finally (disconnect state) $ do
-                    modifyMVar_ state $ \x -> x{_main_conn=Just conn}
+                    modifyMVar_ state $ \x -> return x{_main_conn=Just conn}
                     print "connected"
                     initialize state conn
                     forever $ fromEither . decode <$> WS.receiveData conn >>=
                         handleMsg state conn
-                _ -> return ()
+                _ -> sendResult conn $ Exception "Invalid request"
   where
     fromEither (Left err) = error err
     fromEither (Right x)  = x
@@ -82,7 +83,7 @@ initialize state conn = do
 {-# INLINE initialize #-}
 
 disconnect :: MVar ServerState -> IO ()
-disconnect state = modifyMVar_ state $ \x -> x{_main_conn=Nothing}
+disconnect state = modifyMVar_ state $ \x -> return x{_main_conn=Nothing}
 
 handleMsg :: MVar ServerState -> WS.Connection -> Command -> IO ()
 handleMsg state conn msg = case msg of
@@ -93,7 +94,7 @@ handleMsg state conn msg = case msg of
         st <- readMVar state
         if _is_running st
             then stopTaiji state (fromJust $ _current_process st) conn
-            else runTaiji state selected conn
+            else forkIO (runTaiji state selected conn) >> return ()
     Delete selected -> undefined
     _ -> return ()
 

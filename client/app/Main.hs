@@ -84,14 +84,12 @@ dataViewer = do
         drawTable expressions ctx
 
 socketTester :: MonadWidget t m
-             => MenuEvent t   -- ^ Use _menu_set_cwd event to update workflow
-                              -- ^ use _menu_run event to update node status
-             -> Event t Result
+             => ServerResponse t
              -> m (Event t (NodeEvents t))
-socketTester MenuEvent{..} initialization = do
+socketTester (ServerResponse response) = do
     divClass "ui grid" $ do
         evtOfevt <- divClass "twelve wide column" $ do
-            msg <- holdDyn (return ()) $ flip fmap (fmapMaybe getError _menu_run) $ \err -> do
+            msg <- holdDyn (return ()) $ flip fmap (fmapMaybe getError response) $ \err -> do
                 divClass "ui negative message" $ do
                     elClass "i" "close icon" $ return ()
                     divClass "header" $ text "There were some errors"
@@ -99,8 +97,8 @@ socketTester MenuEvent{..} initialization = do
             dyn msg
 
             rec nodeEvts <- dyn =<< ( holdDyn (return $ NodeEvents never never) $
-                    displayWorkflow (fmapMaybe id _menu_run) selection <$>
-                    fmapMaybe getResult (leftmost [initialization, _menu_set_cwd]) )
+                    displayWorkflow response selection <$>
+                    fmapMaybe getResult response )
                 selection <- handleNodeClickEvent nodeEvts
             return nodeEvts
         divClass "four wide column" $ do
@@ -112,12 +110,15 @@ socketTester MenuEvent{..} initialization = do
     fromEither (Right x) = x
     getResult (Raw bs) = Just $ fromEither $ decode bs
     getResult _ = Nothing
-    getError (Just (Exception x)) = Just x
+    getError (Exception x) = Just x
     getError _ = Nothing
 
 main :: IO ()
 main = mainWidget $ do
     pb <- getPostBuild
-    initialization <- sendMsg $ const Connect <$> pb
-    header (InitialState initialization) (flip socketTester initialization)
+
+    rec let reqs = leftmost [const Connect <$> pb, _menu_run menuEvts, _menu_set_cwd menuEvts]
+        initialization <- ServerResponse <$> sendMsg reqs
+        menuEvts <- header initialization (socketTester initialization)
+
     return ()
