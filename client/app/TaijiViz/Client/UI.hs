@@ -10,22 +10,17 @@ module TaijiViz.Client.UI
     , handleNodeClickEvent
     ) where
 
-import           Control.Monad
 import qualified Data.HashSet                  as S
 import qualified Data.Text                     as T
-import qualified Data.Vector                   as V
 import           Reflex.Dom.Core               hiding (Delete)
-import           Reflex.Dom.SemanticUI
-import           Reflex.Dom.SemanticUI.Sidebar
 
-import           TaijiViz.Client.Message
+import TaijiViz.Client.UI.Sidebar (sidebar)
 import           TaijiViz.Client.Types
 import           TaijiViz.Client.Workflow      (NodeEvents (..))
 import           TaijiViz.Common.Types
 
 data MenuEvent t = MenuEvent
-    { _menu_toggle  :: Event t ()
-    , _menu_run     :: Event t Command
+    { _menu_run     :: Event t Command
     , _menu_set_cwd :: Event t Command
     , _menu_delete  :: Event t Command
     }
@@ -34,23 +29,12 @@ header :: MonadWidget t m
        => ServerResponse t
        -> m (Event t (NodeEvents t))
        -> m (MenuEvent t)
-header response content = fmap snd $ uiSidebar sidebarOptions sidebarMenu
-    pusher (fmap (const ToggleSidebar) . _menu_toggle)
-  where
-    pusher = do
+header response content = do
+    sidebar
+    divClass "main" $ do
         rec menuEvts <- menu response nodeEvts
             nodeEvts <- content
         return menuEvts
-    sidebarMenu = do
-        linkClass "Home" "item"
-        linkClass "Topics" "item"
-        linkClass "History" "item"
-    sidebarOptions = def
-        { _uiSidebar_closable = False
-        , _uiSidebar_dimPage = False
-        , _uiSidebar_inverted = Just UiInverted
-        , _uiSidebar_className = ["menu", "vertical"]
-        }
 
 menu :: MonadWidget t m
      => ServerResponse t
@@ -59,7 +43,7 @@ menu :: MonadWidget t m
 menu response@(ServerResponse r) nodeEvts = divClass "ui fixed inverted menu" $ do
     selection <- handleNodeClickEvent nodeEvts
 
-    link <- linkClass "Menu" "item"
+    divClass "item" $ elAttr "img" [("src", "favicon.ico")] $ return ()
 
     rec (runEvts, runBtnSt) <- handleMenuRun response selection $
             domEvent Click runButton
@@ -74,9 +58,9 @@ menu response@(ServerResponse r) nodeEvts = divClass "ui fixed inverted menu" $ 
                     CWD txt -> Just txt
                     _       -> Nothing
             txt <- textInput def{_textInputConfig_setValue=setTxt}
-            dynClass <- flip mapDyn canSetWD $ \x -> case x of
-                True  -> "ui button"
-                False -> "ui button disabled"
+            let dynClass = flip fmap canSetWD $ \x -> case x of
+                    True  -> "ui button"
+                    False -> "ui button disabled"
             (e, _) <- elDynClass' "button" dynClass $ text "Refresh"
             return (_textInput_value txt, domEvent Click e)
 
@@ -96,12 +80,12 @@ menu response@(ServerResponse r) nodeEvts = divClass "ui fixed inverted menu" $ 
 
         -- Delete button
         (delButton, _) <- elClass' "div" "item" $ do
-            dynClass <- flip mapDyn canDelete $ \x -> case x of
-                True  -> "ui button negative"
-                False -> "ui button negative disabled"
+            let dynClass = flip fmap canDelete $ \x -> case x of
+                    True  -> "ui button negative"
+                    False -> "ui button negative disabled"
             elDynClass "button" dynClass $ text "Delete"
 
-    return $ MenuEvent (_link_clicked link) runEvts cwdEvts delEvts
+    return $ MenuEvent runEvts cwdEvts delEvts
 
 data RunButtonState = ShowRun
                     | ShowStop

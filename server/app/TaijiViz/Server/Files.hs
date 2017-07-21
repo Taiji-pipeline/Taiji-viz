@@ -4,6 +4,12 @@ module TaijiViz.Server.Files where
 import Data.FileEmbed
 import Data.ByteString (ByteString)
 
+favicon_ico :: ByteString
+favicon_ico = $(embedFile "data/favicon.ico")
+
+logo_svg :: ByteString
+logo_svg = $(embedFile "data/logo.svg")
+
 rts_js :: ByteString
 rts_js = $(embedFile "data/rts.js")
 
@@ -16,17 +22,17 @@ lib_js = $(embedFile "data/lib.js")
 runmain_js :: ByteString
 runmain_js = $(embedFile "data/runmain.js")
 
-semantic_js :: ByteString
-semantic_js = $(embedFile "data/semantic.min.js")
-
-semantic_css :: ByteString
-semantic_css = $(embedFile "data/semantic.min.css")
-
 index_html :: ByteString
 index_html = $(embedFile "data/index.html")
 
 index_css :: ByteString
 index_css = $(embedFile "data/index.css")
+
+semantic_js :: ByteString
+semantic_js = $(embedFile "data/semantic.min.js")
+
+semantic_css :: ByteString
+semantic_css = $(embedFile "data/semantic.min.css")
 
 icons_woff :: ByteString
 icons_woff = $(embedFile "data/icons.woff")

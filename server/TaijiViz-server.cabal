@@ -12,6 +12,10 @@ category:            Web
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
+data-files:
+  data/logo.svg
+  data/index.html
+  data/index.css
 
 executable taiji-viz
   hs-source-dirs:      app
