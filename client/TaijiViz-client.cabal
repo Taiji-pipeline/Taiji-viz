@@ -23,6 +23,8 @@ executable taiji-viz-client
                        TaijiViz.Client.Workflow
                        TaijiViz.Client.UI
                        TaijiViz.Client.UI.Sidebar
+                       TaijiViz.Client.UI.Home
+                       TaijiViz.Client.UI.Result
 
   build-depends:
       base

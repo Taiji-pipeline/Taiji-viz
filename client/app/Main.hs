@@ -83,45 +83,5 @@ dataViewer = do
     action ctx RankTable{..} = DOM.liftJSM $ do
         drawTable expressions ctx
 
-socketTester :: MonadWidget t m
-             => ServerResponse t
-             -> m (Event t (NodeEvents t))
-socketTester (ServerResponse response) = do
-    divClass "ui grid" $ do
-        evtOfevt <- divClass "twelve wide column" $ do
-            msg <- holdDyn (return ()) $ flip fmap (fmapMaybe getError response) $ \err -> do
-                divClass "ui negative message" $ do
-                    elClass "i" "close icon" $ return ()
-                    divClass "header" $ text "There were some errors"
-                    el "p" $ text err
-            dyn msg
-
-            rec nodeEvts <- dyn =<< ( holdDyn (return $ NodeEvents never never) $
-                    displayWorkflow response selection <$>
-                    fmapMaybe getResult response )
-                selection <- handleNodeClickEvent nodeEvts
-            return nodeEvts
-        divClass "four wide column" $ do
-            evt1 <- switchPromptly never (_node_hover <$> evtOfevt)
-            nodeInfo =<< holdDyn Nothing (fmap Just evt1)
-        return evtOfevt
-  where
-    getResult (Gr g) = Just g
-    getResult _ = Nothing
-    getError (Exception x) = Just x
-    getError _ = Nothing
-
 main :: IO ()
-main = mainWidget $ do
-    pb <- getPostBuild
-
-    rec let reqs = leftmost
-                [ const Connect <$> pb
-                , _menu_run menuEvts
-                , _menu_set_cwd menuEvts
-                , _menu_delete menuEvts
-                ]
-        initialization <- ServerResponse <$> sendMsg reqs
-        menuEvts <- header initialization (socketTester initialization)
-
-    return ()
+main = mainWidget ui
