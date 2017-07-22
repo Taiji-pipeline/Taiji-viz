@@ -6,6 +6,7 @@ module TaijiViz.Server.Socket
     ) where
 
 import           Conduit
+import           Control.Arrow            ((&&&))
 import           Control.Concurrent       (MVar, forkIO, modifyMVar_, readMVar)
 import           Control.Exception        (bracket, finally)
 import           Control.Monad            (forM_, forever)
@@ -125,6 +126,8 @@ sendGraph state conn db = do
     graph' <- if exist
         then bracket (openDB db) closeDB $ \h -> drawGraph (readStatus h) graph
         else drawGraph (const (return Unknown)) graph
+    modifyMVar_ state $ \st -> return st{_node_status =
+        M.fromList $ map (nodeId &&& nodeState) $ nodes graph'}
     sendResult conn $ Gr graph'
   where
     readStatus h pid = do
@@ -146,8 +149,7 @@ runTaiji state selected conn = bracket
          return e )
     ( \_ -> do modifyMVar_ state $ \x -> return x{_is_running=False}
                sendResult' state $ Status Stopped )
-    ( \e -> sourceHandle e =$= linesUnboundedAsciiC =$= concatMapMC fn $$
-                mapM_C (sendResult' state) )
+    ( \e -> sourceHandle e =$= linesUnboundedAsciiC $$ mapM_C fn )
   where
     cmd = proc "taiji" $ ["run", "--config", "config.yml"] ++ selection
     selection | null selected = []
@@ -162,26 +164,23 @@ stopTaiji state p conn = do
     modifyMVar_ state $ \x -> return x{_is_running=False}
     sendResult conn $ Status Stopped
 
-
-processMsg :: MVar ServerState -> B.ByteString -> IO (Maybe Result)
+processMsg :: MVar ServerState -> B.ByteString -> IO ()
 processMsg state msg
-    | isMsg msg = Just <$> result
-    | isErr msg = return $ Just $ Exception $ T.pack $ B.unpack msg
-    | otherwise = return Nothing
+    | isMsg msg = do
+        saveNodeState state pid nodeSt
+        sendResult' state $ Notification pid nodeSt
+    | isErr msg = sendResult' state $ Exception $ T.pack $ B.unpack msg
+    | otherwise = return ()
   where
     isMsg x = "[LOG][" `B.isPrefixOf` x || "[WARN][" `B.isPrefixOf` x
     isErr = B.isPrefixOf "[ERROR]["
-    result = do
-        saveNodeState state pid nodeSt
-        return $ Notification pid nodeSt
-      where
-        [field1, field2] = take 2 $ reverse $ B.words msg
-        pid = T.init $ T.pack $ B.unpack field2
-        nodeSt = case () of
-            _ | "running" `B.isPrefixOf` field1 -> InProgress
-              | "Failed" `B.isPrefixOf` field1 -> Failed
-              | "Finished" `B.isPrefixOf` field1 -> Finished
-              | otherwise -> Unknown
+    [field1, field2] = take 2 $ reverse $ B.words msg
+    pid = T.init $ T.pack $ B.unpack field2
+    nodeSt = case () of
+        _ | "running" `B.isPrefixOf` field1 -> InProgress
+          | "Failed" `B.isPrefixOf` field1 -> Failed
+          | "Finished" `B.isPrefixOf` field1 -> Finished
+          | otherwise -> Unknown
 
 
 --------------------------------------------------------------------------------
