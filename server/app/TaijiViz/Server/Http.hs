@@ -12,8 +12,8 @@ import qualified Data.Map as M
 
 import TaijiViz.Server.Files
 
-router :: M.Map B.ByteString Response
-router = M.fromList $ map (second response)
+staticRouter :: M.Map B.ByteString Response
+staticRouter = M.fromList $ map (second response)
     [ ("/rts.js", rts_js)
     , ("/lib.js", lib_js)
     , ("/out.js", out_js)
@@ -37,4 +37,4 @@ badRequest :: Response
 badRequest = responseLBS status400 [] BL.empty
 
 httpApp :: Application
-httpApp req = \respond -> respond $ M.findWithDefault badRequest (rawPathInfo req) router
+httpApp req = \respond -> respond $ M.findWithDefault badRequest (rawPathInfo req) staticRouter

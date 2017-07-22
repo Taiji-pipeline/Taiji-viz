@@ -9,11 +9,11 @@ import           Conduit
 import           Control.Concurrent       (MVar, forkIO, modifyMVar_, readMVar)
 import           Control.Exception        (bracket, finally)
 import           Control.Monad            (forM_, forever)
+import           Data.Binary              (decode, encode)
 import qualified Data.ByteString.Char8    as B
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy     as BL
 import qualified Data.Map.Strict          as M
 import           Data.Maybe               (fromJust)
-import           Data.Binary (decode, encode)
 import qualified Data.Text                as T
 import qualified Network.WebSockets       as WS
 import           Scientific.Workflow.DB   (closeDB, isFinished, openDB)
@@ -23,8 +23,7 @@ import           System.Process           (CreateProcess (..), ProcessHandle,
                                            StdStream (..), createProcess,
                                            interruptProcessGroupOf, proc)
 
-import           TaijiViz.Common.Types    (Command (..), NodeState (..),
-                                           ProgramStatus (..), Result (..))
+import           TaijiViz.Common.Types
 import           TaijiViz.Server.Workflow
 
 import           Debug.Trace
@@ -35,6 +34,7 @@ data ServerState = ServerState
     , _is_running      :: Bool
     , _node_status     :: M.Map T.Text NodeState
     , _main_conn       :: Maybe WS.Connection
+    , _final_result    :: Maybe TaijiResults
     }
 
 defaultServerState :: ServerState
@@ -44,6 +44,7 @@ defaultServerState = ServerState
     , _is_running      = False
     , _node_status = M.empty
     , _main_conn = Nothing
+    , _final_result = Nothing
     }
 
 socketApp :: MVar ServerState -> WS.ServerApp
@@ -58,7 +59,6 @@ socketApp state pending = do
             case msg of
                 Connect -> flip finally (disconnect state) $ do
                     modifyMVar_ state $ \x -> return x{_main_conn=Just conn}
-                    print "connected"
                     initialize state conn
                     forever $ decode . BL.fromStrict <$> WS.receiveData conn >>=
                         handleMsg state conn

@@ -31,6 +31,7 @@ executable taiji-viz-client
     , TaijiViz-common
     , bytestring
     , binary
+    , data-default
     , fgl
     , ghcjs-base
     , containers

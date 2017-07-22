@@ -1,10 +1,14 @@
 {-# LANGUAGE DeriveGeneric #-}
 module TaijiViz.Common.Types where
 
+import Control.Monad (mzero)
+import           Data.Aeson                (FromJSON(..), ToJSON(..), Value(..))
+import           Data.Binary               (Binary)
 import           Data.ByteString           (ByteString)
-import           Data.Binary (Binary)
-import           Data.Text.Binary ()
+import qualified Data.ByteString.Char8 as B
+import qualified Data.Map.Strict           as M
 import qualified Data.Text                 as T
+import           Data.Text.Binary          ()
 import           GHC.Generics              (Generic)
 import           Scientific.Workflow.Types (Attribute, PID)
 
@@ -71,3 +75,44 @@ data Graph = Graph
     } deriving (Generic)
 
 instance Binary Graph
+
+
+--------------------------------------------------------------------------------
+-- Results
+--------------------------------------------------------------------------------
+
+data RankTable = RankTable
+    { rowNames    :: [ByteString]
+    , colNames    :: [ByteString]
+    , ranks       :: [[Double]]
+    , expressions :: [[Double]]
+    } deriving (Eq, Generic)
+
+instance Binary RankTable
+
+instance ToJSON RankTable
+instance FromJSON RankTable
+
+data TaijiResults = TaijiResults
+    { ranktable :: RankTable
+    , nets      :: M.Map T.Text (M.Map ByteString ByteString)
+    } deriving (Generic)
+
+instance Binary TaijiResults
+
+data Network = Network
+    { tf       :: T.Text
+    , parents  :: [ByteString]
+    , children :: [ByteString]
+    , title    :: T.Text
+    } deriving (Generic)
+
+instance ToJSON Network
+instance FromJSON Network
+
+instance FromJSON ByteString where
+    parseJSON (String x) = return $ B.pack $ T.unpack x
+    parseJSON _          = mzero
+
+instance ToJSON ByteString where
+    toJSON x = String $ T.pack $ B.unpack x
