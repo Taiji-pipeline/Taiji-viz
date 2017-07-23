@@ -13,7 +13,10 @@ import           Data.Maybe              (fromJust)
 import qualified Data.Text               as T
 import qualified GHCJS.DOM.Types         as DOM
 import qualified JavaScript.Web.Canvas   as C
+import qualified Data.Matrix.Unboxed as MU
+import qualified Data.Vector.Unboxed as U
 import           Reflex.Dom.Core
+import Statistics.Function (minMax)
 
 import           TaijiViz.Client.Message (httpUrl)
 import           TaijiViz.Common.Types
@@ -57,18 +60,16 @@ drawCircle x y r ctx = do
     C.fill ctx
     C.closePath ctx
 
-drawTable :: [[Double]] -> C.Canvas -> IO ()
+drawTable :: MU.Matrix Double -> C.Canvas -> IO ()
 drawTable dat c = do
-    C.setWidth w c
-    C.setHeight h c
+    C.setWidth (50*w) c
+    C.setHeight (50*h) c
     ctx <- C.getContext c
-    forM_ dat' $ \((x,y),d) -> do
+    flip MU.imapM_ dat $ \(i, j) d -> do
         let r = 5 + (d - min') / (max' - min') * 15
+            x = 50 * fromIntegral j + 25
+            y = 50 * fromIntegral i + 25
         drawCircle x y r ctx
   where
-    dat' = concat $ zipWith f [25, 75 ..] dat
-    max' = maximum $ snd $ unzip dat'
-    min' = minimum $ snd $ unzip dat'
-    f y row = zipWith (\x d -> ((x,y),d)) [25, 70 ..] row
-    w = 50 * length (head dat)
-    h = 50 * length dat
+    (min', max') = minMax $ MU.flatten dat
+    (h, w) = MU.dim dat

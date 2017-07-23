@@ -29,21 +29,23 @@ executable taiji-viz-client
   build-depends:
       base
     , TaijiViz-common
+    , aeson
     , bytestring
     , binary
+    , containers
     , data-default
+    , ghcjs-dom-jsffi
     , fgl
     , ghcjs-base
-    , containers
-    , text
+    , lens
+    , matrices>=0.4.5
     , reflex-dom
     , reflex-dom-contrib
     , reflex-dom-semui
     , transformers
-    , ghcjs-dom-jsffi
-    , lens
-    , aeson
+    , text
     , unordered-containers
+    , statistics
     , SciFlow
     , vector
   default-language:    Haskell2010

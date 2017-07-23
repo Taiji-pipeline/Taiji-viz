@@ -20,6 +20,9 @@ library
                      , aeson
                      , bytestring
                      , binary
+                     , matrices
+                     , vector
+                     , vector-binary-instances
                      , containers
                      , text-binary
                      , SciFlow

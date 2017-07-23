@@ -45,3 +45,4 @@ extra-deps:
   - ref-tf-0.4.0.1
   - zenc-0.1.1
   - jsaddle-0.9.3.0
+  - matrices-0.4.5

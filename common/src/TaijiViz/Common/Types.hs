@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 module TaijiViz.Common.Types where
 
 import Control.Monad (mzero)
@@ -6,7 +7,10 @@ import           Data.Aeson                (FromJSON(..), ToJSON(..), Value(..))
 import           Data.Binary               (Binary)
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString.Char8 as B
+import qualified Data.Matrix.Unboxed   as MU
 import qualified Data.Map.Strict           as M
+import           Data.Vector.Binary    ()
+import qualified Data.Vector as V
 import qualified Data.Text                 as T
 import           Data.Text.Binary          ()
 import           GHC.Generics              (Generic)
@@ -82,20 +86,23 @@ instance Binary Graph
 --------------------------------------------------------------------------------
 
 data RankTable = RankTable
-    { rowNames    :: [ByteString]
-    , colNames    :: [ByteString]
-    , ranks       :: [[Double]]
-    , expressions :: [[Double]]
-    } deriving (Eq, Generic)
+    { rowNames    :: V.Vector B.ByteString
+    , colNames    :: V.Vector T.Text
+    , ranks       :: MU.Matrix Double
+    , expressions :: MU.Matrix Double
+    } deriving (Generic)
+
+instance Binary (MU.Matrix Double)
+instance ToJSON (MU.Matrix Double)
+instance FromJSON (MU.Matrix Double) 
 
 instance Binary RankTable
-
 instance ToJSON RankTable
 instance FromJSON RankTable
 
 data TaijiResults = TaijiResults
     { ranktable :: RankTable
-    , nets      :: M.Map T.Text (M.Map ByteString ByteString)
+    , nets      :: M.Map T.Text (M.Map B.ByteString B.ByteString)
     } deriving (Generic)
 
 instance Binary TaijiResults
