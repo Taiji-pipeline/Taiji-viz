@@ -36,6 +36,7 @@ displayWorkflow update selection Graph{..} = divClass "ui segment" $
     svgAttr "svg"
         [ ("height", T.pack $ show $ max node_h edge_h + 50)
         , ("width", T.pack $ show $ max node_w edge_w + 50)
+        , ("class", "workflow")
         ] $ mkEdges edges >> mkNodes (fmapMaybe f update) selection nodes
   where
     (node_w, node_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $

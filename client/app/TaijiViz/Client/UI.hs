@@ -25,5 +25,5 @@ container :: MonadWidget t m => Dynamic t Bool -> m a -> m a
 container shouldShow = elDynAttr "div" attr
   where
     attr = flip fmap shouldShow $ \x -> if x
-        then []
+        then [("style", "height:100%")]
         else [("style", "display: none")]
