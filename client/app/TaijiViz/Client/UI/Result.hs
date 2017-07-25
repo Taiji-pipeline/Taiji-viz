@@ -4,7 +4,8 @@
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module TaijiViz.Client.UI.Result where
+module TaijiViz.Client.UI.Result
+    (result) where
 
 import           Control.Monad                  (forM_)
 import           Control.Monad.IO.Class         (liftIO)
@@ -17,7 +18,6 @@ import           Data.Maybe                     (fromJust)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
-import System.IO.Unsafe (unsafePerformIO)
 import qualified Data.Vector.Unboxed            as U
 import           GHCJS.DOM.Element              (setScrollTop, getScrollLeft, setScrollLeft)
 import qualified GHCJS.DOM.Types                as DOM
@@ -25,44 +25,83 @@ import qualified JavaScript.Web.Canvas          as C
 import           Reflex.Dom.Contrib.Widgets.Svg (svg, svgAttr, svgAttr',
                                                  svgDynAttr')
 import           Reflex.Dom.Core
-import           Reflex.Dom.Widget.Lazy         (virtualList)
 import           Statistics.Function            (minMax)
-import           Statistics.Sample (meanVarianceUnb)
 
 import           TaijiViz.Client.Message        (httpUrl)
 import           TaijiViz.Common.Types
+import           TaijiViz.Client.UI.Result.Config (configuration)
+import           TaijiViz.Client.Functions
 
 result :: MonadWidget t m => m ()
-result = elAttr "div"
-    [ ("class", "ui container")
-    , ("style", "height:100%")
-    ] $ do
-        table <- fetchData
-        container $ fmapMaybe id table
-        return ()
-
-container :: MonadWidget t m => Event t RankTable -> m ()
-container table = elAttr "div" style $ do
-    widgetHold (text "Loading") (fmap (drawTable 50 (5, 20)) table)
+result = do
+    rec (table, update, toggleConfig) <- menu $ updated feedback
+        dynTable <- holdDyn (Right Nothing) table
+        feedback <- elAttr "div"
+            [ ("class", "ui container")
+            , ("style", "height:100%")
+            ] $ container $ attach (current config) $
+                leftmost [table, tag (current dynTable) update]
+        config <- configuration toggleConfig
     return ()
+
+menu :: MonadWidget t m
+     => Event t ()
+     -> m ( Event t (Either T.Text (Maybe RankTable))
+          , Event t ()
+          , Dynamic t Bool
+          )
+menu feedback = divClass "ui vertical inverted borderless icon menu fixed" $ do
+    dat <- elClass "a" "item" $ fetchData
+    update <- refresh feedback
+    rec (options, _) <- elDynAttr' "a" (optBtnSty <$> toggleConfig) $
+            elClass "i" "icon options" $ return ()
+        toggleConfig <- toggle False $ domEvent Click options
+    return (dat, update, toggleConfig)
+  where
+    optBtnSty x = [("class", "item" <> if x then " active" else "")]
+
+container :: MonadWidget t m
+          => Event t ((Double, Double), Either T.Text (Maybe RankTable))
+          -> m (Dynamic t ())
+container dat = elAttr "div" style $ do
+    widgetHold initial $ ffor dat $ \((th,min'), table) -> case table of
+        Left msg -> divClass "ui active inverted dimmer" $
+            divClass "ui text massive loader" $ text msg
+        Right Nothing -> text "Data is not ready"
+        Right (Just t) ->
+            drawTable 50 (5, 20) $ filterRankTable ((>=th). cv) $
+                filterRankTable ((>=min'). U.maximum) t
   where
     style = toStyleAttr $
         "position" =: "relative" <>
         "width" =: "100%" <>
         "height" =: "calc(100% - 20px)" <>
         "overflow" =: "hidden"
+    initial = do
+        text "Please click "
+        elClass "i" "icon download" $ return ()
+        text " to retrieve the data"
 
-fetchData :: MonadWidget t m => m (Event t (Maybe RankTable))
-fetchData = do
-    rec (e, _) <- elDynAttr' "i" attr $ return ()
+refresh :: MonadWidget t m => Event t () -> m (Event t ())
+refresh feedback = do
+    rec (e, _) <- elClass "a" "item" $ elDynAttr' "i" attr $ return ()
         let clickEvt = domEvent Click e
-            req= const url <$> ffilter not (updated canClick)
             attr = flip fmap canClick $ \x -> if x
                 then [("class", "refresh icon")]
                 else [("class", "refresh icon loading")]
-        recv <- fmap fromJust <$> getAndDecode req
-        canClick <- holdUniqDyn =<< holdDyn True (leftmost [const False <$> clickEvt, const True <$> recv])
-    return recv
+        canClick <- holdUniqDyn =<< holdDyn True (leftmost [False <$ clickEvt, True <$ feedback])
+    return $ () <$ ffilter not (updated canClick)
+
+-- | Icon and events for retrieving data.
+fetchData :: MonadWidget t m
+          => m (Event t (Either T.Text (Maybe RankTable)))
+fetchData = do
+    rec isIdle <- feedbackLoop feedback $ \_ -> do
+            (e, _) <- elClass' "i" "download icon" $ return ()
+            return $ domEvent Click e
+        let req = url <$ ffilter not (updated isIdle)
+        feedback <- fmap fromJust <$> getAndDecode req
+    return $ leftmost [Left "Downloading" <$ req, Right <$> feedback]
   where
     url = httpUrl `T.append` "/data/table"
 
@@ -99,7 +138,7 @@ drawTable unit (minR, maxR) table@RankTable{..} = do
         svgDynAttr' "svg" (topHeaderStyle <$> scrollLeftPosition) $
             flip V.imapM_ colNames $ \i txt -> do
                 let x = T.pack $ show $ (fromIntegral i + 0.5) * fromIntegral unit
-                    y = T.pack $ show $ top - 5
+                    y = T.pack $ show $ top - 8
                 svgAttr "text"
                     [ ("x", x)
                     , ("y", y)
@@ -111,7 +150,7 @@ drawTable unit (minR, maxR) table@RankTable{..} = do
     elAttr "div" leftHeaderWrapper $
         svgDynAttr' "svg" (leftHeaderStyle <$> scrollTopPosition) $
             flip V.imapM_ rowNames $ \i txt -> svgAttr "text"
-                [ ("x", T.pack $ show $ left - 5)
+                [ ("x", T.pack $ show $ left - 8)
                 , ("y", T.pack $ show $ (fromIntegral i + 0.5) * fromIntegral unit)
                 , ("font-size", "13")
                 , ("text-anchor", "end")
@@ -187,68 +226,3 @@ drawResults (minRadius, maxRadius) boxSize color RankTable{..} cvs = do
     white = (255, 255, 255)
 
 toStyleAttr m = "style" =: M.foldWithKey (\k v s -> k <> ":" <> v <> ";" <> s) "" m
-
-{-
-virtualTable :: MonadWidget t m
-    => Dynamic t Int -- ^ A 'Dynamic' of the visible region's height in pixels
-    -> Int -- ^ The fixed height of each row in pixels
-    -> Int -- ^ The index of the row to scroll to on initialization
-    -> MU.Matrix Double
-    -> m ()
-virtualTable heightPx rowPx i0 mat = do
-    pb <- getPostBuild
-    rec (viewport, result) <- elDynAttr "div" containerStyle $
-            elDynAttr' "div" viewportStyle $
-            svgAttr "svg" virtualH $ dyn $
-                flip fmap window $ \(idx, num) -> forM_ (enumFromTo idx (num+idx-1)) $ \i -> do
-                    let row = mat `MU.takeRow` i
-                    flip U.imapM_ row $ \j v -> do
-                        let r = 5 + (v - min') / (max' - min') * 15
-                        svgAttr "circle"
-                            [ ("cx", T.pack $ show $ j * 50 + 25)
-                            , ("cy", T.pack $ show $ i * 50 + 25)
-                            , ("r", T.pack $ show r) ] $ return ()
-        scrollPosition <- holdDyn 0 $ leftmost [ round <$> domEvent Scroll viewport
-                                               , fmap (const (i0 * rowPx)) pb
-                                               ]
-        let window = zipDynWith (findWindow rowPx) heightPx scrollPosition
-    performEvent_ $ ffor (i0 <$ pb) $ \i ->
-      setScrollTop (_element_raw viewport) (i * rowPx)
-    uniqWindow <- holdUniqDyn window
-    return ()
-  where
-    virtualH = toStyleAttr $
-        "height" =: (T.pack (show $ MU.rows mat * rowPx) <> "px") <>
-        "overflow" =: "hidden"
-    containerStyle = flip fmap heightPx $ \h -> toStyleAttr $
-        "position" =: "relative" <>
-        "height" =: (T.pack (show h) <> "px") <>
-        "position" =: "relative"
-    viewportStyle = flip fmap heightPx $ \h -> toStyleAttr $
-        "overflow" =: "auto" <>
-        "position" =: "absolute" <>
-        "left" =: "0" <>
-        "right" =: "0" <>
-        "height" =: (T.pack (show h) <> "px")
-    findWindow sizeIncrement windowSize startingPosition =
-          let startingIndex = startingPosition `div'` sizeIncrement
-              numItems = (windowSize + sizeIncrement - 1) `div` sizeIncrement
-          in (startingIndex, numItems)
-    toStyleAttr m = "style" =: M.foldWithKey (\k v s -> k <> ":" <> v <> ";" <> s) "" m
-
-    (min', max') = minMax $ MU.flatten mat
-    -}
-
-scale :: U.Vector Double -> U.Vector Double
-scale xs = U.map (\x -> (x - m) / sqrt s) xs
-  where
-    (m,s) = meanVarianceUnb xs
-
-
--- | Blend two colors
-blend :: Double   -- ^ weight
-      -> (Double, Double, Double)
-      -> (Double, Double, Double)
-      -> (Double, Double, Double)
-blend w (r1,g1,b1) (r2,g2,b2) =
-    ( r1 * w + r2 * (1 - w), g1 * w + g2 * (1 - w), b1 * w + b2 * (1 - w) )

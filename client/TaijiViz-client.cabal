@@ -19,12 +19,14 @@ executable taiji-viz-client
   ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N -dedupe
 
   other-modules:       TaijiViz.Client.Message
+                       TaijiViz.Client.Functions
                        TaijiViz.Client.Types
                        TaijiViz.Client.Workflow
                        TaijiViz.Client.UI
                        TaijiViz.Client.UI.Sidebar
                        TaijiViz.Client.UI.Home
                        TaijiViz.Client.UI.Result
+                       TaijiViz.Client.UI.Result.Config
 
   build-depends:
       base
