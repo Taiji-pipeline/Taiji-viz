@@ -28,6 +28,7 @@ import           TaijiViz.Server.Socket         (ServerState (..),
 main :: IO ()
 main = do
     state <- newMVar defaultServerState
+    putStrLn "Server is running at: 127.0.0.1:8787"
     runSettings (setHost "127.0.0.1" $ setPort 8787 $ defaultSettings) $
         serve (Proxy :: Proxy API) $ server state
 
