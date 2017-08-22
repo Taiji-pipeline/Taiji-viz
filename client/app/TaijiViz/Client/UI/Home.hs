@@ -12,7 +12,7 @@ import           Control.Arrow             (second)
 import qualified Data.HashSet              as S
 import qualified Data.Text                 as T
 import           Reflex.Dom.Core           hiding (Delete)
-import           Scientific.Workflow.Types (_note)
+import           Scientific.Workflow.Internal.Builder.Types (_note)
 
 import           TaijiViz.Client.Message
 import           TaijiViz.Client.Types

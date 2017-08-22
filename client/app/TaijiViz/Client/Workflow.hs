@@ -12,11 +12,10 @@ module TaijiViz.Client.Workflow
 import           Control.Monad
 import qualified Data.HashSet                   as S
 import qualified Data.Map                       as M
-import           Data.Maybe                     (fromMaybe)
 import qualified Data.Text                      as T
-import           Reflex.Dom.Contrib.Widgets.Svg (svgAttr, svgAttr', svgDynAttr')
+import           Reflex.Dom.Contrib.Widgets.Svg (svgAttr, svgDynAttr')
 import           Reflex.Dom.Core
-import           Scientific.Workflow.Types      (Attribute (..), PID)
+import           Scientific.Workflow.Internal.Builder.Types      (Attribute (..))
 
 import           TaijiViz.Common.Types
 

@@ -37,7 +37,7 @@ packages:
 
   - location:
       git: https://github.com/kaizhang/SciFlow.git
-      commit: 81e0649f83f56257654d0ddb2602837549b5fc89
+      commit: b9f4926a65894f4dc016b364dbef68436d6db86e
 
 extra-deps:
   - dependent-sum-template-0.0.0.6
@@ -46,3 +46,4 @@ extra-deps:
   - zenc-0.1.1
   - jsaddle-0.9.3.0
   - matrices-0.4.5
+  - optparse-applicative-0.14.0.0

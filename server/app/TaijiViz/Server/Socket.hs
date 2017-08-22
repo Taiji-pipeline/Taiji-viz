@@ -11,13 +11,17 @@ import           Control.Concurrent       (MVar, forkIO, modifyMVar_, readMVar)
 import           Control.Exception        (bracket, finally)
 import           Control.Monad            (forM_, forever)
 import           Data.Binary              (decode, encode)
+import qualified Data.Serialize                  as S
 import qualified Data.ByteString.Char8    as B
 import qualified Data.ByteString.Lazy     as BL
 import qualified Data.Map.Strict          as M
 import           Data.Maybe               (fromJust)
 import qualified Data.Text                as T
 import qualified Network.WebSockets       as WS
-import           Scientific.Workflow.DB   (closeDB, isFinished, openDB)
+import           Scientific.Workflow.Internal.DB   (closeDB, isFinished, openDB)
+import qualified Scientific.Workflow.Internal.Utils as W
+import Network.Socket hiding (recv)
+import Network.Socket.ByteString
 import           Shelly                   (chdir, fromText, run_, shelly,
                                            test_f)
 import           System.Process           (CreateProcess (..), ProcessHandle,
@@ -28,6 +32,9 @@ import           TaijiViz.Common.Types
 import           TaijiViz.Server.Workflow
 
 import           Debug.Trace
+
+unixSocketAddr :: String
+unixSocketAddr = "Taiji.socket"
 
 data ServerState = ServerState
     { _current_process :: Maybe ProcessHandle
@@ -51,6 +58,7 @@ defaultServerState = ServerState
 socketApp :: MVar ServerState -> WS.ServerApp
 socketApp state pending = do
     currentConn <- _main_conn <$> readMVar state
+    forkIO $ readLog state
     case currentConn of
         Just _ -> WS.rejectRequest pending "Can only have 1 connection at a time"
         Nothing -> do
@@ -64,6 +72,36 @@ socketApp state pending = do
                     forever $ decode . BL.fromStrict <$> WS.receiveData conn >>=
                         handleMsg state conn
                 _ -> sendResult conn $ Exception "Invalid request"
+
+
+readLog :: MVar ServerState -> IO ()
+readLog state = do
+    sock <- socket AF_UNIX Stream defaultProtocol
+    bind sock $ SockAddrUnix ('\0' : unixSocketAddr)
+    listen sock 1
+    forever $ do
+        (s, _) <- accept sock
+        loop s
+  where
+    loop s = do
+        d <- getData s
+        case d of
+            W.Exit -> putStrLn "disconnected" >> close s
+            W.Running pid -> do
+                saveNodeState state pid InProgress
+                sendResult' state $ Notification pid InProgress
+            W.Complete pid -> do
+                saveNodeState state pid Finished
+                sendResult' state $ Notification pid Finished
+            W.Warn pid msg -> do
+                saveNodeState state pid Failed
+                sendResult' state $ Notification pid Failed
+            W.Error msg -> sendResult' state $ Exception $ T.pack msg
+    getData s = do
+        h <- S.decode <$> recv s 100
+        case h of
+            Right x -> return x
+            Left e -> error e
 
 initialize :: MVar ServerState -> WS.Connection -> IO ()
 initialize state conn = do
@@ -151,37 +189,18 @@ runTaiji state selected conn = bracket
                sendResult' state $ Status Stopped )
     ( \e -> sourceHandle e =$= linesUnboundedAsciiC $$ mapM_C fn )
   where
-    cmd = proc "taiji" $ ["run", "--config", "config.yml"] ++ selection
+    cmd = proc "taiji" $ ["run", "--log-server", "\\0" ++ unixSocketAddr
+        , "--config", "config.yml"] ++ selection
     selection | null selected = []
               | otherwise = ["--select", T.unpack $ T.intercalate "," selected]
     fn x = do
         B.putStrLn x
-        processMsg state $ strip x
 
 stopTaiji :: MVar ServerState -> ProcessHandle -> WS.Connection -> IO ()
 stopTaiji state p conn = do
     interruptProcessGroupOf p
     modifyMVar_ state $ \x -> return x{_is_running=False}
     sendResult conn $ Status Stopped
-
-processMsg :: MVar ServerState -> B.ByteString -> IO ()
-processMsg state msg
-    | isMsg msg = do
-        saveNodeState state pid nodeSt
-        sendResult' state $ Notification pid nodeSt
-    | isErr msg = sendResult' state $ Exception $ T.pack $ B.unpack msg
-    | otherwise = return ()
-  where
-    isMsg x = "[LOG][" `B.isPrefixOf` x || "[WARN][" `B.isPrefixOf` x
-    isErr = B.isPrefixOf "[ERROR]["
-    [field1, field2] = take 2 $ reverse $ B.words msg
-    pid = T.init $ T.pack $ B.unpack field2
-    nodeSt = case () of
-        _ | "running" `B.isPrefixOf` field1 -> InProgress
-          | "Failed" `B.isPrefixOf` field1 -> Failed
-          | "Finished" `B.isPrefixOf` field1 -> Finished
-          | otherwise -> Unknown
-
 
 --------------------------------------------------------------------------------
 -- Utilities

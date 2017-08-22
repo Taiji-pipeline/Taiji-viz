@@ -39,10 +39,11 @@ executable taiji-viz
                      , fgl
                      , file-embed
                      , http-types
+                     , network
                      , process
                      , shelly
                      , servant-server
-                     , SciFlow
+                     , SciFlow >= 0.6.0
                      , text
                      , websockets
                      , wai

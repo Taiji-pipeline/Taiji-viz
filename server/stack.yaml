@@ -3,9 +3,9 @@ resolver: lts-8.22
 packages:
 - '.'
 - '../common'
-
 - location:
     git: https://github.com/kaizhang/SciFlow.git
-    commit: 81e0649f83f56257654d0ddb2602837549b5fc89
+    commit: b9f4926a65894f4dc016b364dbef68436d6db86e
 
-extra-deps: []
+extra-deps:
+  - optparse-applicative-0.14.0.0

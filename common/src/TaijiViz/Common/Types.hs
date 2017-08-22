@@ -1,20 +1,27 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 module TaijiViz.Common.Types where
 
-import Control.Monad (mzero)
-import           Data.Aeson                (FromJSON(..), ToJSON(..), Value(..))
-import           Data.Binary               (Binary)
-import           Data.ByteString           (ByteString)
-import qualified Data.ByteString.Char8 as B
-import qualified Data.Matrix.Unboxed   as MU
-import qualified Data.Map.Strict           as M
-import           Data.Vector.Binary    ()
-import qualified Data.Vector as V
-import qualified Data.Text                 as T
-import           Data.Text.Binary          ()
-import           GHC.Generics              (Generic)
-import           Scientific.Workflow.Types (Attribute, PID)
+import           Control.Monad                              (mzero)
+import           Data.Aeson                                 (FromJSON (..),
+                                                             ToJSON (..),
+                                                             Value (..))
+import           Data.Binary                                (Binary)
+import           Data.ByteString                            (ByteString)
+import qualified Data.ByteString.Char8                      as B
+import qualified Data.Map.Strict                            as M
+import qualified Data.Matrix.Unboxed                        as MU
+import qualified Data.Text                                  as T
+import           Data.Text.Binary                           ()
+import qualified Data.Vector                                as V
+import           Data.Vector.Binary                         ()
+import           GHC.Generics                               (Generic)
+import           Scientific.Workflow.Internal.Builder.Types (Attribute,
+                                                             FunctionConfig,
+                                                             FunctionType,
+                                                             ParallelMode)
+
+type PID = T.Text
 
 -- | Commands that send from client to server.
 data Command = SetCWD T.Text
@@ -68,6 +75,9 @@ data Node = Node
     , nodeState :: NodeState
     } deriving (Generic)
 
+instance Binary FunctionType
+instance Binary ParallelMode
+instance Binary FunctionConfig
 instance Binary Attribute
 instance Binary Node
 
@@ -94,7 +104,7 @@ data RankTable = RankTable
 
 instance Binary (MU.Matrix Double)
 instance ToJSON (MU.Matrix Double)
-instance FromJSON (MU.Matrix Double) 
+instance FromJSON (MU.Matrix Double)
 
 instance Binary RankTable
 instance ToJSON RankTable

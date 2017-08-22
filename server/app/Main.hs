@@ -3,27 +3,28 @@
 {-# LANGUAGE TypeOperators     #-}
 module Main where
 
-import           Codec.Compression.GZip         (decompress)
-import           Control.Concurrent             (MVar, newMVar, readMVar, modifyMVar_)
-import           Control.Exception              (bracket)
-import           Control.Monad.IO.Class         (liftIO)
-import           Data.Binary                    (decode)
-import Data.Maybe (fromJust)
-import Shelly hiding (FilePath)
-import qualified Data.ByteString.Lazy           as BL
-import qualified Data.Map.Strict                as M
-import qualified Data.Text                      as T
-import           Network.Wai.Handler.Warp       (defaultSettings, runSettings,
-                                                 setHost, setPort)
-import           Network.Wai.Handler.WebSockets (websocketsOr)
-import           Network.WebSockets             (defaultConnectionOptions)
-import           Scientific.Workflow.DB         (closeDB, openDB, readData)
+import           Codec.Compression.GZip          (decompress)
+import           Control.Concurrent              (MVar, modifyMVar_, newMVar,
+                                                  readMVar)
+import           Control.Exception               (bracket)
+import           Control.Monad.IO.Class          (liftIO)
+import           Data.Binary                     (decode)
+import qualified Data.ByteString.Lazy            as BL
+import qualified Data.Map.Strict                 as M
+import           Data.Maybe                      (fromJust)
+import qualified Data.Text                       as T
+import           Network.Wai.Handler.Warp        (defaultSettings, runSettings,
+                                                  setHost, setPort)
+import           Network.Wai.Handler.WebSockets  (websocketsOr)
+import           Network.WebSockets              (defaultConnectionOptions)
+import           Scientific.Workflow.Internal.DB (closeDB, openDB, readData)
 import           Servant
+import           Shelly                          hiding (FilePath)
 
 import           TaijiViz.Common.Types
-import           TaijiViz.Server.Http           (httpApp)
-import           TaijiViz.Server.Socket         (ServerState (..),
-                                                 defaultServerState, socketApp)
+import           TaijiViz.Server.Http            (httpApp)
+import           TaijiViz.Server.Socket          (ServerState (..),
+                                                  defaultServerState, socketApp)
 
 main :: IO ()
 main = do

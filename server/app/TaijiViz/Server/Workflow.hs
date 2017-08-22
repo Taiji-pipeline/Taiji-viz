@@ -1,18 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 module TaijiViz.Server.Workflow where
 
-import           Control.Monad                     (forM)
-import           Control.Monad.IO.Class            (liftIO)
-import qualified Data.ByteString                   as B
-import qualified Data.Graph.Inductive.Graph        as G
-import           Data.Graph.Inductive.PatriciaTree (Gr)
-import qualified Data.GraphViz                     as G
-import qualified Data.GraphViz.Attributes.Complete as G
-import           Data.Maybe                        (mapMaybe)
-import           Data.Serialize                    (decode)
-import qualified Data.Text.Lazy                    as TL
-import           Scientific.Workflow.Types         (Attribute, PID)
-import           Shelly                            hiding (FilePath)
+import           Control.Monad                              (forM)
+import           Control.Monad.IO.Class                     (liftIO)
+import qualified Data.ByteString                            as B
+import qualified Data.Graph.Inductive.Graph                 as G
+import           Data.Graph.Inductive.PatriciaTree          (Gr)
+import qualified Data.GraphViz                              as G
+import qualified Data.GraphViz.Attributes.Complete          as G
+import           Data.Maybe                                 (mapMaybe)
+import           Data.Serialize                             (decode)
+import qualified Data.Text.Lazy                             as TL
+import           Scientific.Workflow.Internal.Builder.Types (Attribute)
+import Scientific.Workflow.Types ()
+import           Shelly                                     hiding (FilePath)
 
 import           TaijiViz.Common.Types
 
