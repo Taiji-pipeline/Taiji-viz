@@ -2,10 +2,17 @@ resolver: lts-8.22
 
 packages:
 - '.'
+
 - '../common'
+
 - location:
     git: https://github.com/kaizhang/SciFlow.git
     commit: b9f4926a65894f4dc016b364dbef68436d6db86e
 
+- location:
+    git: https://github.com/Taiji-pipeline/Taiji-types.git
+    commit: fece20ab969214b7b9d6b55254b4dbf8e8a07ebe
+
 extra-deps:
+  - cereal-vector-0.2.0.1
   - optparse-applicative-0.14.0.0

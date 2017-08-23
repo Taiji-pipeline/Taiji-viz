@@ -48,7 +48,7 @@ instance Binary NodeState
 
 -- | Results from running the commands, sent by the server to the client.
 data Result = Status ProgramStatus          -- ^ program status
-            | Gr Graph                -- ^ some data
+            | Gr Graph
             | Notification PID NodeState    -- ^ node status update
             | Exception T.Text              -- ^ error message
             | CWD T.Text                    -- ^ current working directory
@@ -60,6 +60,7 @@ instance Show Result where
     show (Notification pid st) = "Notification: " ++ show pid ++ " " ++ show st
     show (Exception x) = "Exception: " ++ show x
     show (CWD x) = "CWD: " ++ show x
+    show _ = "Something"
 
 instance Binary Result
 

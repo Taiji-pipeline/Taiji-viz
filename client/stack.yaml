@@ -39,6 +39,10 @@ packages:
       git: https://github.com/kaizhang/SciFlow.git
       commit: b9f4926a65894f4dc016b364dbef68436d6db86e
 
+  - location:
+      git: https://github.com/Taiji-pipeline/Taiji-types.git
+      commit: fece20ab969214b7b9d6b55254b4dbf8e8a07ebe
+
 extra-deps:
   - dependent-sum-template-0.0.0.6
   - prim-uniq-0.1.0.1

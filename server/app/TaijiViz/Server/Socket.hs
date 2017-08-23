@@ -90,15 +90,20 @@ readLog state = do
             W.Running pid -> do
                 saveNodeState state pid InProgress
                 sendResult' state $ Notification pid InProgress
+                loop s
             W.Complete pid -> do
                 saveNodeState state pid Finished
                 sendResult' state $ Notification pid Finished
+                loop s
             W.Warn pid msg -> do
                 saveNodeState state pid Failed
                 sendResult' state $ Notification pid Failed
-            W.Error msg -> sendResult' state $ Exception $ T.pack msg
+                loop s
+            W.Error msg -> do
+                sendResult' state $ Exception $ T.pack msg
+                loop s
     getData s = do
-        h <- S.decode <$> recv s 100
+        h <- S.decode <$> recv s 4096
         case h of
             Right x -> return x
             Left e -> error e
