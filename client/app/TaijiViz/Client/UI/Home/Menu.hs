@@ -12,6 +12,7 @@ import qualified Data.Text                 as T
 import           Reflex.Dom.Core           hiding (Delete)
 import           Scientific.Workflow.Internal.Builder.Types (_note)
 import qualified GHCJS.DOM.Types                as DOM
+import Data.Default
 
 import           TaijiViz.Client.Message
 import           TaijiViz.Client.Types
@@ -142,7 +143,7 @@ handleDelete selection runBtnSt evt = (req, isAvailable)
 uiModal :: MonadWidget t m => Event t () -> m ()
 uiModal evt = do
     pb <- delay 0 =<< getPostBuild
-    (e, _) <- elClass' "div" "ui longer modal" $ configPanel
+    (e, _) <- elClass' "div" "ui longer modal" $ configPanel def
     performEvent_ (DOM.liftJSM . js_modalAction (_element_raw e) . const "" <$> pb)
     performEvent_ (DOM.liftJSM . js_modalAction (_element_raw e) . const "show" <$> evt)
     return ()
