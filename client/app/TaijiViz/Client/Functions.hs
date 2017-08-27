@@ -9,7 +9,7 @@ import           Statistics.Sample (meanVarianceUnb)
 import           Statistics.Function            (minMax)
 import           Reflex.Dom.Core
 
-import TaijiViz.Common.Types (RankTable(..))
+import Taiji.Types (RankTable(..))
 
 scale :: U.Vector Double -> U.Vector Double
 scale xs = U.map (\x -> (x - m) / sqrt v) xs
@@ -36,11 +36,15 @@ blend w (r1,g1,b1) (r2,g2,b2) =
 
 -- | Filter RankTable by CV
 filterRankTable :: (U.Vector Double -> Bool) -> RankTable -> RankTable
-filterRankTable fn RankTable{..} = RankTable (V.fromList name) colNames
-    (MU.fromRows rank) (MU.fromRows expr)
-  where
-    dat = zip3 (V.toList rowNames) (MU.toRows ranks) (MU.toRows expressions)
-    (name, rank, expr) = unzip3 $ flip filter dat $ \(_, rank, _) -> fn rank
+filterRankTable fn RankTable{..} = case expressions of
+    Just expressions' ->
+        let dat = zip3 (V.toList rowNames) (MU.toRows ranks) (MU.toRows expressions')
+            (name, rank, expr) = unzip3 $ flip filter dat $ \(_, rank, _) -> fn rank
+        in RankTable (V.fromList name) colNames (MU.fromRows rank) (Just $ MU.fromRows expr)
+    Nothing ->
+        let dat = zip (V.toList rowNames) (MU.toRows ranks)
+            (name, rank) = unzip $ flip filter dat $ \(_, rank) -> fn rank
+        in RankTable (V.fromList name) colNames (MU.fromRows rank) Nothing
 
 feedbackLoop :: MonadWidget t m
              => Event t a -> (Dynamic t Bool -> m (Event t b)) -> m (Dynamic t Bool)

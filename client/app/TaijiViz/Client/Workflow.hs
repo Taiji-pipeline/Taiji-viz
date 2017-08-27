@@ -39,7 +39,7 @@ displayWorkflow update selection Graph{..} = divClass "ui segment" $
         ] $ mkEdges edges >> mkNodes (fmapMaybe f update) selection nodes
   where
     (node_w, node_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $
-        map nodeCoord nodes
+        map (\Node{..} -> (\(a,b) -> (a + nodeWidth / 2, b)) nodeCoord) nodes
     (edge_w, edge_h) = (\(x,y) -> (maximum x, maximum y)) $ unzip $ concat $
         concat edges
     f (Notification pid st) = Just (pid, st)

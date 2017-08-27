@@ -41,7 +41,7 @@ packages:
 
   - location:
       git: https://github.com/Taiji-pipeline/Taiji-types.git
-      commit: fece20ab969214b7b9d6b55254b4dbf8e8a07ebe
+      commit: 61f13cc6f4d63b9ce3712710dcdd716c19aba487
 
 extra-deps:
   - dependent-sum-template-0.0.0.6

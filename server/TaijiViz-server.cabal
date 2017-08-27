@@ -36,6 +36,7 @@ executable taiji-viz
                      , conduit-combinators
                      , cereal
                      , containers
+                     , data-default
                      , graphviz
                      , fgl
                      , file-embed
@@ -50,6 +51,7 @@ executable taiji-viz
                      , wai
                      , warp
                      , wai-websockets
+                     , yaml
                      , zlib
 
   default-language:    Haskell2010

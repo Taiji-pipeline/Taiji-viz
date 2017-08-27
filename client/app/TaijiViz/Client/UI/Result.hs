@@ -14,7 +14,7 @@ import           Data.Default                   (def)
 import           Data.Fixed
 import qualified Data.Map                       as M
 import qualified Data.Matrix.Unboxed            as MU
-import           Data.Maybe                     (fromJust)
+import           Data.Maybe                     (fromJust, fromMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
@@ -29,6 +29,7 @@ import           Statistics.Function            (minMax)
 
 import           TaijiViz.Client.Message        (httpUrl)
 import           TaijiViz.Common.Types
+import           Taiji.Types
 import           TaijiViz.Client.UI.Result.Config (configuration)
 import           TaijiViz.Client.Functions
 
@@ -155,7 +156,7 @@ drawTable unit (minR, maxR) table@RankTable{..} = do
                 , ("font-size", "13")
                 , ("text-anchor", "end")
                 , ("alignment-baseline", "middle")
-                ] $ text $ T.pack $ B.unpack txt
+                ] $ text txt
 
     elAttr "div" cornerStyle $ return ()
 
@@ -164,7 +165,7 @@ drawTable unit (minR, maxR) table@RankTable{..} = do
         C.setHeight h cvs
         drawResults (minR, maxR) (fromIntegral unit) (255,0,0) table cvs
   where
-    (r, c) = MU.dim expressions
+    (r, c) = MU.dim ranks
     top = 80
     left = 80
     w = unit * c + left
@@ -211,17 +212,19 @@ drawResults :: (Double, Double)   -- ^ min and max radius
             -> IO ()
 drawResults (minRadius, maxRadius) boxSize color RankTable{..} cvs = do
     ctx <- C.getContext cvs
-    flip MU.imapM_ (MU.zip expressions ranks') $ \(i, j) (expr, rank) -> do
-        let r = getRadius expr
+    flip MU.imapM_ ranks' $ \(i, j) rank -> do
+        let r = fromMaybe maxRadius $ fmap (MU.! (i,j)) expressions >>= getRadius
             c = blend (getWeight rank rangeRank) color white
             x = boxSize * fromIntegral j + boxSize / 2
             y = boxSize * fromIntegral i + boxSize / 2
         drawCircle x y r c ctx
   where
     ranks' = MU.fromRows $ map scale $ MU.toRows ranks
-    rangeExpr = minMax $ MU.flatten expressions
+    rangeExpr = fmap (minMax . MU.flatten) expressions
     rangeRank = minMax $ MU.flatten ranks'
-    getRadius x = minRadius + getWeight x rangeExpr * (maxRadius - minRadius)
+    getRadius x = do
+        r <- rangeExpr
+        return $ minRadius + getWeight x r * (maxRadius - minRadius)
     getWeight x (lo, hi) = (x - lo) / (hi - lo)
     white = (255, 255, 255)
 

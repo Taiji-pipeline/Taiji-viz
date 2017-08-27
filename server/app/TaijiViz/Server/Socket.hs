@@ -3,38 +3,51 @@ module TaijiViz.Server.Socket
     ( ServerState(..)
     , defaultServerState
     , socketApp
+    , readLog
     ) where
 
 import           Conduit
-import           Control.Arrow            ((&&&))
-import           Control.Concurrent       (MVar, forkIO, modifyMVar_, readMVar)
-import           Control.Exception        (bracket, finally)
-import           Control.Monad            (forM_, forever)
-import           Data.Binary              (decode, encode)
-import qualified Data.Serialize                  as S
-import qualified Data.ByteString.Char8    as B
-import qualified Data.ByteString.Lazy     as BL
-import qualified Data.Map.Strict          as M
-import           Data.Maybe               (fromJust)
-import qualified Data.Text                as T
-import qualified Network.WebSockets       as WS
-import           Scientific.Workflow.Internal.DB   (closeDB, isFinished, openDB)
+import           Control.Arrow                      ((&&&))
+import           Control.Concurrent                 (MVar, forkIO, modifyMVar_,
+                                                     readMVar)
+import           Control.Exception                  (bracket, finally)
+import           Control.Monad                      (forM_, forever)
+import           Data.Binary                        (decode, encode)
+import qualified Data.ByteString.Char8              as B
+import qualified Data.ByteString.Lazy               as BL
+import           Data.Default                       (def)
+import qualified Data.Map.Strict                    as M
+import           Data.Maybe                         (fromJust, fromMaybe)
+import qualified Data.Serialize                     as S
+import qualified Data.Text                          as T
+import           Data.Yaml                          (decodeFile, encodeFile)
+import           Network.Socket                     hiding (recv)
+import           Network.Socket.ByteString
+import qualified Network.WebSockets                 as WS
+import           Scientific.Workflow.Internal.DB    (closeDB, isFinished,
+                                                     openDB)
 import qualified Scientific.Workflow.Internal.Utils as W
-import Network.Socket hiding (recv)
-import Network.Socket.ByteString
-import           Shelly                   (chdir, fromText, run_, shelly,
-                                           test_f)
-import           System.Process           (CreateProcess (..), ProcessHandle,
-                                           StdStream (..), createProcess,
-                                           interruptProcessGroupOf, proc)
+import           Shelly                             (chdir, fromText, run_,
+                                                     shelly, test_f)
+import           System.Process                     (CreateProcess (..),
+                                                     ProcessHandle,
+                                                     StdStream (..),
+                                                     createProcess,
+                                                     interruptProcessGroupOf,
+                                                     proc)
+import           Taiji.Types                        (TaijiConfig)
 
 import           TaijiViz.Common.Types
+import           Taiji.Types (TaijiResults(..))
 import           TaijiViz.Server.Workflow
 
 import           Debug.Trace
 
 unixSocketAddr :: String
 unixSocketAddr = "Taiji.socket"
+
+configFileName :: String
+configFileName = "config.yml"
 
 data ServerState = ServerState
     { _current_process :: Maybe ProcessHandle
@@ -58,7 +71,6 @@ defaultServerState = ServerState
 socketApp :: MVar ServerState -> WS.ServerApp
 socketApp state pending = do
     currentConn <- _main_conn <$> readMVar state
-    forkIO $ readLog state
     case currentConn of
         Just _ -> WS.rejectRequest pending "Can only have 1 connection at a time"
         Nothing -> do
@@ -106,7 +118,7 @@ readLog state = do
         h <- S.decode <$> recv s 4096
         case h of
             Right x -> return x
-            Left e -> error e
+            Left e  -> error e
 
 initialize :: MVar ServerState -> WS.Connection -> IO ()
 initialize state conn = do
@@ -118,6 +130,7 @@ initialize state conn = do
             getGraph >>= layoutGraph' >>=
                 drawGraph (query (_node_status st)) >>=
                 sendResult conn . Gr
+            sendConfig (T.unpack wd) conn
             if _is_running st
                 then sendResult conn $ Status Running
                 else sendResult conn $ Status Stopped
@@ -128,16 +141,30 @@ initialize state conn = do
 disconnect :: MVar ServerState -> IO ()
 disconnect state = modifyMVar_ state $ \x -> return x{_main_conn=Nothing}
 
+sendConfig :: FilePath -> WS.Connection -> IO ()
+sendConfig dir conn = do
+    config <- readConfig dir
+    sendResult conn $ Config $ fromMaybe def config
+
+readConfig :: FilePath -> IO (Maybe TaijiConfig)
+readConfig dir = do
+    let fl = dir ++ "/" ++ configFileName
+    exist <- shelly $ test_f $ fromText $ T.pack fl
+    if exist
+        then decodeFile fl
+        else return Nothing
+
 handleMsg :: MVar ServerState -> WS.Connection -> Command -> IO ()
 handleMsg state conn msg = case msg of
     SetCWD wd -> do
         modifyMVar_ state $ \x -> return x{_current_wd = Just wd}
         sendGraph state conn $ T.unpack wd ++ "/sciflow.db"
-    Run selected     -> do
+        sendConfig (T.unpack wd) conn
+    Run config selected -> do
         st <- readMVar state
         if _is_running st
             then stopTaiji state (fromJust $ _current_process st) conn
-            else forkIO (runTaiji state selected conn) >> return ()
+            else forkIO (runTaiji state config selected conn) >> return ()
     Delete selected -> do
         wd <- _current_wd <$> readMVar state
         forM_ selected $ \pid -> do
@@ -179,9 +206,10 @@ sendGraph state conn db = do
         saveNodeState state pid st
         return st
 
-runTaiji :: MVar ServerState -> [T.Text] -> WS.Connection -> IO ()
-runTaiji state selected conn = bracket
+runTaiji :: MVar ServerState -> TaijiConfig -> [T.Text] -> WS.Connection -> IO ()
+runTaiji state config selected conn = bracket
     ( do wd <- _current_wd <$> readMVar state
+         encodeFile (T.unpack (fromMaybe "" wd) ++ "/" ++ configFileName) config
          (_, _, Just e, p) <- createProcess cmd
             { cwd = T.unpack <$> wd
             , std_err = CreatePipe
@@ -195,7 +223,7 @@ runTaiji state selected conn = bracket
     ( \e -> sourceHandle e =$= linesUnboundedAsciiC $$ mapM_C fn )
   where
     cmd = proc "taiji" $ ["run", "--log-server", "\\0" ++ unixSocketAddr
-        , "--config", "config.yml"] ++ selection
+        , "--config", configFileName] ++ selection
     selection | null selected = []
               | otherwise = ["--select", T.unpack $ T.intercalate "," selected]
     fn x = do

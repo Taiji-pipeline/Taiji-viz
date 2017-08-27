@@ -40,6 +40,8 @@ mkConfig TaijiConfig{..} = TaijiConfig
     <***> mkField "star_index" _taiji_star_index
     <***> mkField "annotation" _taiji_annotation
     <***> mkField "rsem_index" _taiji_rsem_index
+    <***> mkField "genome_index" _taiji_genome_index
+    <***> mkField "motif_file" _taiji_motif_file
   where
     (<$$$>) = fmap . fmap
     (<***>) = (<*>) . fmap (<*>)

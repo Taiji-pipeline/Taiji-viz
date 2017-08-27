@@ -7,12 +7,14 @@ module TaijiViz.Client.UI.Home.Menu
     ) where
 
 import           Control.Arrow             (second)
+import Control.Monad (join)
 import qualified Data.HashSet              as S
 import qualified Data.Text                 as T
 import           Reflex.Dom.Core           hiding (Delete)
 import           Scientific.Workflow.Internal.Builder.Types (_note)
 import qualified GHCJS.DOM.Types                as DOM
 import Data.Default
+import Taiji.Types (TaijiConfig)
 
 import           TaijiViz.Client.Message
 import           TaijiViz.Client.Types
@@ -30,11 +32,11 @@ menu :: MonadWidget t m
      => ServerResponse t
      -> Dynamic t (S.HashSet T.Text)
      -> m (MenuEvent t)
-menu response@(ServerResponse r) selection = do
+menu response@(ServerResponse result) selection = do
     divClass "ui fixed inverted menu small borderless" $ do
         divClass "item" $ elAttr "img" [("src", "favicon.ico")] $ return ()
 
-        rec (runEvts, runBtnSt) <- handleMenuRun response selection $
+        rec (runEvts, runBtnSt) <- handleMenuRun response config selection $
                 domEvent Click runButton
             let (cwdEvts, canSetWD) = handleMenuSetWD runBtnSt (c, txt)
                 (delEvts, canDelete) = handleDelete selection runBtnSt $
@@ -43,7 +45,7 @@ menu response@(ServerResponse r) selection = do
             -- Working directory
             (txt, c) <- divClass "item" $ divClass "ui action labeled input" $ do
                 divClass "ui label" $ text "working directory:"
-                let setTxt = flip fmapMaybe r $ \x -> case x of
+                let setTxt = flip fmapMaybe result $ \x -> case x of
                         CWD txt -> Just txt
                         _       -> Nothing
                 txt <- textInput def{_textInputConfig_setValue=setTxt}
@@ -77,7 +79,9 @@ menu response@(ServerResponse r) selection = do
             (confBtn, _) <- divClass "right menu" $ elClass' "div" "item" $
                 elClass "button" "ui button" $ text "Config"
 
-            uiModal $ domEvent Click confBtn
+            config <- uiModal (fmapMaybe (\x -> case x of
+                Config c -> Just c
+                _ -> Nothing ) result) (domEvent Click confBtn)
 
         return $ MenuEvent runEvts cwdEvts delEvts
 
@@ -92,13 +96,15 @@ data RunButtonState = ShowRun
 -- Just _ : result is available
 handleMenuRun :: MonadWidget t m
               => ServerResponse t
+              -> Dynamic t TaijiConfig
               -> Dynamic t (S.HashSet T.Text)
               -> Event t ()       -- when clicking the run button
               -> m (Event t Command, Dynamic t RunButtonState)
-handleMenuRun (ServerResponse response) clkNode menu_run = do
+handleMenuRun (ServerResponse response) config clkNode menu_run = do
     st <- foldDynMaybe f Disabled $ leftmost [response', const ShowLoad <$> menu_run]
-    let runEvt = tag (current clkNode) $ ffilter (==ShowLoad) $ updated st
-    return (Run . S.toList <$> runEvt, st)
+    let runEvt = attach (current config) $ tag (current clkNode) $
+            ffilter (==ShowLoad) $ updated st
+    return ((\(a, b) -> Run a $ S.toList b) <$> runEvt, st)
   where
     f ShowLoad Disabled = Nothing
     f ShowLoad ShowLoad = Nothing
@@ -140,13 +146,15 @@ handleDelete selection runBtnSt evt = (req, isAvailable)
         ShowLoad -> False
         ShowStop -> False
 
-uiModal :: MonadWidget t m => Event t () -> m ()
-uiModal evt = do
+uiModal :: MonadWidget t m => Event t TaijiConfig -> Event t ()
+        -> m (Dynamic t TaijiConfig)
+uiModal config evt = do
     pb <- delay 0 =<< getPostBuild
-    (e, _) <- elClass' "div" "ui longer modal" $ configPanel def
+    (e, dynConfig) <- elClass' "div" "ui longer modal" $ do
+        fmap join $ widgetHold (return def) $ fmap configPanel config
     performEvent_ (DOM.liftJSM . js_modalAction (_element_raw e) . const "" <$> pb)
     performEvent_ (DOM.liftJSM . js_modalAction (_element_raw e) . const "show" <$> evt)
-    return ()
+    return dynConfig
 
 foreign import javascript unsafe "$($1).modal($2);"
     js_modalAction :: DOM.Element -> DOM.JSString -> IO ()

@@ -16,6 +16,7 @@ import           Data.Text.Binary                           ()
 import qualified Data.Vector                                as V
 import           Data.Vector.Binary                         ()
 import           GHC.Generics                               (Generic)
+import Taiji.Types (TaijiConfig)
 import           Scientific.Workflow.Internal.Builder.Types (Attribute,
                                                              FunctionConfig,
                                                              FunctionType,
@@ -25,7 +26,7 @@ type PID = T.Text
 
 -- | Commands that send from client to server.
 data Command = SetCWD T.Text
-             | Run [T.Text]
+             | Run TaijiConfig [T.Text]
              | Delete [T.Text]
              | Connect
              deriving (Generic)
@@ -52,6 +53,7 @@ data Result = Status ProgramStatus          -- ^ program status
             | Notification PID NodeState    -- ^ node status update
             | Exception T.Text              -- ^ error message
             | CWD T.Text                    -- ^ current working directory
+            | Config TaijiConfig
     deriving (Generic)
 
 instance Show Result where
@@ -62,6 +64,7 @@ instance Show Result where
     show (CWD x) = "CWD: " ++ show x
     show _ = "Something"
 
+instance Binary TaijiConfig
 instance Binary Result
 
 type Point = (Double, Double)
@@ -90,33 +93,6 @@ data Graph = Graph
     } deriving (Generic)
 
 instance Binary Graph
-
-
---------------------------------------------------------------------------------
--- Results
---------------------------------------------------------------------------------
-
-data RankTable = RankTable
-    { rowNames    :: V.Vector B.ByteString
-    , colNames    :: V.Vector T.Text
-    , ranks       :: MU.Matrix Double
-    , expressions :: MU.Matrix Double
-    } deriving (Generic)
-
-instance Binary (MU.Matrix Double)
-instance ToJSON (MU.Matrix Double)
-instance FromJSON (MU.Matrix Double)
-
-instance Binary RankTable
-instance ToJSON RankTable
-instance FromJSON RankTable
-
-data TaijiResults = TaijiResults
-    { ranktable :: RankTable
-    , nets      :: M.Map T.Text (M.Map B.ByteString B.ByteString)
-    } deriving (Generic)
-
-instance Binary TaijiResults
 
 data Network = Network
     { tf       :: T.Text
