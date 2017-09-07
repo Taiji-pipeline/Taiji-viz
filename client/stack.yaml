@@ -37,7 +37,7 @@ packages:
 
   - location:
       git: https://github.com/kaizhang/SciFlow.git
-      commit: b9f4926a65894f4dc016b364dbef68436d6db86e
+      commit: e68c9b4d24ab766a8e2137e8f4e6f632dd7cc1a9
 
   - location:
       git: https://github.com/Taiji-pipeline/Taiji-types.git

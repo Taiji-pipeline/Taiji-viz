@@ -17,7 +17,7 @@ import           Network.Wai.Handler.Warp        (defaultSettings, runSettings,
                                                   setHost, setPort)
 import           Network.Wai.Handler.WebSockets  (websocketsOr)
 import           Network.WebSockets              (defaultConnectionOptions)
-import           Scientific.Workflow.Internal.DB (closeDB, openDB, readData)
+import           Scientific.Workflow.Internal.DB (closeDB, openDB, readData, deserialize)
 import           Servant
 import           Shelly                          hiding (FilePath)
 
@@ -54,7 +54,7 @@ server state = sendRankTable
                         wd <- fromJust . _current_wd <$> readMVar state
                         let dbfile = T.unpack wd ++ "/sciflow.db"
                         bracket (openDB dbfile) closeDB $ \db -> do
-                            file <- readData "Export_Results" db
+                            file <- deserialize <$> readData "Export_Results" db
                             results <- fmap (decode . decompress . BL.fromStrict) $ shelly $
                                 chdir (fromText wd) $ readBinary $ fromText $ T.pack file
                             modifyMVar_ state $ \x -> return x{_final_result=Just results}

@@ -20,7 +20,8 @@ data-files:
 executable taiji-viz
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -Wall -optl-static -optc-static -optl-pthread
+  ghc-options:         -threaded
+  -- ghc-options:         -threaded -Wall -optl-static -optc-static -optl-pthread
 
   other-modules:       TaijiViz.Server.Types
                        TaijiViz.Server.Files

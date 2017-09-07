@@ -30,7 +30,7 @@ import           Statistics.Function            (minMax)
 import           TaijiViz.Client.Message        (httpUrl)
 import           TaijiViz.Common.Types
 import           Taiji.Types
-import           TaijiViz.Client.UI.Result.Config (configuration)
+import           TaijiViz.Client.UI.Result.Config
 import           TaijiViz.Client.Functions
 
 result :: MonadWidget t m => m ()
@@ -62,16 +62,19 @@ menu feedback = divClass "ui vertical inverted borderless icon menu fixed" $ do
     optBtnSty x = [("class", "item" <> if x then " active" else "")]
 
 container :: MonadWidget t m
-          => Event t ((Double, Double), Either T.Text (Maybe RankTable))
+          => Event t (VizConfig, Either T.Text (Maybe RankTable))
           -> m (Dynamic t ())
 container dat = elAttr "div" style $ do
-    widgetHold initial $ ffor dat $ \((th,min'), table) -> case table of
+    widgetHold initial $ ffor dat $ \(VizConfig th min', table) -> case table of
         Left msg -> divClass "ui active inverted dimmer" $
             divClass "ui text massive loader" $ text msg
         Right Nothing -> text "Data is not ready"
-        Right (Just t) ->
-            drawTable 50 (5, 20) $ filterRankTable ((>=th). cv) $
-                filterRankTable ((>=min'). U.maximum) t
+        Right (Just t) -> do
+            let table1 = filterRankTable ((>=min'). U.maximum) t
+                table2 = case th of
+                    Cutoff CV x -> filterRankTable ((>=x). cv) table1
+                    Cutoff FoldChange x -> filterRankTable ((>=x). maxFoldChange) table1
+            drawTable 50 (5, 20) table2
   where
     style = toStyleAttr $
         "position" =: "relative" <>
