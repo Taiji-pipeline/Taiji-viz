@@ -16,23 +16,25 @@ scale xs = U.map (\x -> (x - m) / sqrt v) xs
   where
     (m,v) = meanVarianceUnb xs
 
+logFoldChange :: U.Vector Double -> U.Vector Double
+logFoldChange xs = U.map (logBase 2 . (/min')) xs
+  where
+    min' = U.minimum xs
+
 cv :: U.Vector Double -> Double
 cv xs = sqrt v / m
   where
     (m,v) = meanVarianceUnb xs
-
-maxFoldChange :: U.Vector Double -> Double
-maxFoldChange xs = max' / min'
-  where
-    (min', max') = minMax xs
 
 -- | Blend two colors
 blend :: Double   -- ^ weight
       -> (Double, Double, Double)
       -> (Double, Double, Double)
       -> (Double, Double, Double)
-blend w (r1,g1,b1) (r2,g2,b2) =
+blend w' (r1,g1,b1) (r2,g2,b2) =
     ( r1 * w + r2 * (1 - w), g1 * w + g2 * (1 - w), b1 * w + b2 * (1 - w) )
+  where
+    w = if w' > 1 then 1 else w'
 
 -- | Filter RankTable by CV
 filterRankTable :: (U.Vector Double -> Bool) -> RankTable -> RankTable

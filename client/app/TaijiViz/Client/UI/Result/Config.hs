@@ -63,9 +63,9 @@ configuration shouldShow = elDynAttr "div" (wrapperStyle <$> shouldShow) $ do
             else "bottom:-300px;transition:bottom 0.5s linear;"
 
 cutoffConfig :: MonadWidget t m => m (Dynamic t CutoffType)
-cutoffConfig = radioGroup 0
-    [ (FoldChange, "fold change")
-    , (CV, "coefficient of variance") ]
+cutoffConfig = divClass "grouped fields" $ do
+    el "label" $ text "Select the filtering method:"
+    radioGroup 0 [(FoldChange, "fold change"), (CV, "coefficient of variance")]
 
 doubleInput :: MonadWidget t m => TextInputConfig t -> m (Event t (Either String (Double, T.Text)))
 doubleInput opt = do
@@ -95,10 +95,11 @@ putRadioItem :: MonadWidget t m
              -> T.Text
              -> Bool
              -> m _
-putRadioItem name label checked = do
-    (inputEl, _) <- elAttr' "input" attrs blank
-    el "label" $ text label
-    return inputEl
+putRadioItem name label checked = divClass "field" $
+    divClass "ui radio checkbox" $ do
+        (inputEl, _) <- elAttr' "input" attrs blank
+        el "label" $ text label
+        return inputEl
   where
     attrs = [("type", "radio"), ("name", name)] <>
         (if checked then [("checked", "true")] else [])
