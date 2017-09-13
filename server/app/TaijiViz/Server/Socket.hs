@@ -118,7 +118,7 @@ readLog state = do
         h <- S.decode <$> recv s 4096
         case h of
             Right x -> return x
-            Left e  -> error e
+            Left e  -> putStrLn e >> return W.Exit
 
 initialize :: MVar ServerState -> WS.Connection -> IO ()
 initialize state conn = do

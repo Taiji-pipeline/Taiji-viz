@@ -21,7 +21,7 @@ import           TaijiViz.Client.Workflow                   (NodeEvents (..),
                                                              displayWorkflow)
 import           TaijiViz.Common.Types
 
-home :: MonadWidget t m => m ()
+home :: MonadWidget t m => m (ServerResponse t)
 home = do
     pb <- getPostBuild
     rec let reqs = leftmost
@@ -32,7 +32,7 @@ home = do
                 ]
         initialization <- ServerResponse <$> sendMsg reqs
         menuEvts <- header initialization (socketTester initialization)
-    return ()
+    return initialization
 
 header :: MonadWidget t m
        => ServerResponse t
@@ -50,13 +50,6 @@ socketTester :: MonadWidget t m
 socketTester (ServerResponse response) = do
     divClass "ui grid" $ do
         (selectedNodes, evtOfevt) <- divClass "twelve wide column" $ do
-            msg <- holdDyn (return ()) $ flip fmap (fmapMaybe getError response) $ \err -> do
-                divClass "ui negative message" $ do
-                    elClass "i" "close icon" $ return ()
-                    divClass "header" $ text "There were some errors"
-                    el "p" $ text err
-            dyn msg
-
             rec nodeEvts <- dyn =<< ( holdDyn (return $ NodeEvents never never) $
                     displayWorkflow response selection <$>
                     fmapMaybe getResult response )
