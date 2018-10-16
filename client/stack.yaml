@@ -10,38 +10,6 @@ setup-info:
 
 packages:
   - '.'
-  - '../common'
-  - 'reflex-dom-semui'
-  - location:
-      git: https://github.com/ghcjs/ghcjs-dom.git
-      commit: "b5984c8326f6eb1e29f2ca60c0e88eb6ecfdc0c1"
-    subdirs:
-      - ghcjs-dom
-      - ghcjs-dom-jsffi
-#      - ghcjs-dom-jsaddle
-
-  - location:
-      git: https://github.com/reflex-frp/reflex.git
-      commit: 1d3a26b3f7d7d50cfe95bb3a28eca38981ad9ec3
-
-  - location:
-      git: https://github.com/reflex-frp/reflex-dom.git
-      commit: 275939f650b87d2d46b6b8416655d963fee9280e
-    subdirs:
-      - reflex-dom-core
-      - reflex-dom
-
-  - location:
-      git: https://github.com/reflex-frp/reflex-dom-contrib.git
-      commit: 57eeca60e5f2d579bd202e4af40c430bebd0f853
-
-  - location:
-      git: https://github.com/kaizhang/SciFlow.git
-      commit: e68c9b4d24ab766a8e2137e8f4e6f632dd7cc1a9
-
-  - location:
-      git: https://github.com/Taiji-pipeline/Taiji-types.git
-      commit: 61f13cc6f4d63b9ce3712710dcdd716c19aba487
 
 extra-deps:
   - dependent-sum-template-0.0.0.6
@@ -51,3 +19,32 @@ extra-deps:
   - jsaddle-0.9.3.0
   - matrices-0.4.5
   - optparse-applicative-0.14.0.0
+  - '../common'
+  - 'reflex-dom-semui'
+
+  - git: https://github.com/ghcjs/ghcjs-dom.git
+    commit: b6266a1df2029e1c295ad04d6a33a93c7eff0f1c 
+    subdirs:
+      - ghcjs-dom
+      - ghcjs-dom-jsffi
+#      - ghcjs-dom-jsaddle
+
+  - git: https://github.com/reflex-frp/reflex.git
+    commit: 15c99fc6adf4926289d12c0e19fa96b9b1a1e731
+
+  - git: https://github.com/reflex-frp/reflex-dom.git
+    commit: 8bde2d72193369c92a995820ca1f56690d3c8ec3
+    subdirs:
+      - reflex-dom-core
+      - reflex-dom
+
+  - git: https://github.com/reflex-frp/reflex-dom-contrib.git
+    commit: 10818e345c4cb34c6a1282add2c26e05c6007ad6
+
+  - git: https://github.com/kaizhang/SciFlow.git
+    commit: e68c9b4d24ab766a8e2137e8f4e6f632dd7cc1a9
+
+  - git: https://github.com/Taiji-pipeline/Taiji-types.git
+    commit: 61f13cc6f4d63b9ce3712710dcdd716c19aba487
+
+

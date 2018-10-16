@@ -38,7 +38,6 @@ import           System.Process                     (CreateProcess (..),
 import           Taiji.Types                        (TaijiConfig)
 
 import           TaijiViz.Common.Types
-import           Taiji.Types (TaijiResults(..))
 import           TaijiViz.Server.Workflow
 
 import           Debug.Trace
@@ -55,7 +54,6 @@ data ServerState = ServerState
     , _is_running      :: Bool
     , _node_status     :: M.Map T.Text NodeState
     , _main_conn       :: Maybe WS.Connection
-    , _final_result    :: Maybe TaijiResults
     }
 
 defaultServerState :: ServerState
@@ -65,7 +63,6 @@ defaultServerState = ServerState
     , _is_running      = False
     , _node_status = M.empty
     , _main_conn = Nothing
-    , _final_result = Nothing
     }
 
 socketApp :: MVar ServerState -> WS.ServerApp

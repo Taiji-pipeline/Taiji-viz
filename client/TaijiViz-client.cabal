@@ -28,9 +28,6 @@ executable taiji-viz-client
                        TaijiViz.Client.UI.Home
                        TaijiViz.Client.UI.Home.Menu
                        TaijiViz.Client.UI.Home.Menu.Config
-                       TaijiViz.Client.UI.Result
-                       TaijiViz.Client.UI.Result.Config
-                       TaijiViz.Client.UI.Result.Table
 
   build-depends:
       base

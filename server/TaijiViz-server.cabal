@@ -31,7 +31,6 @@ executable taiji-viz
 
   build-depends:       base
                      , TaijiViz-common
-                     , Taiji-types
                      , bytestring
                      , binary
                      , conduit-combinators

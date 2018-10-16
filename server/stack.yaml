@@ -3,16 +3,15 @@ resolver: lts-9.1
 packages:
 - '.'
 
-- '../common'
-
-- location:
-    git: https://github.com/kaizhang/SciFlow.git
-    commit: e68c9b4d24ab766a8e2137e8f4e6f632dd7cc1a9
-
-- location:
-    git: https://github.com/Taiji-pipeline/Taiji-types.git
-    commit: 61f13cc6f4d63b9ce3712710dcdd716c19aba487
 
 extra-deps:
   - cereal-vector-0.2.0.1
   - optparse-applicative-0.14.0.0
+  - '../common'
+
+  - git: https://github.com/kaizhang/SciFlow.git
+    commit: e68c9b4d24ab766a8e2137e8f4e6f632dd7cc1a9
+
+  - git: https://github.com/Taiji-pipeline/Taiji-types.git
+    commit: 61f13cc6f4d63b9ce3712710dcdd716c19aba487
+
